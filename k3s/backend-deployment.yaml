@@ -18,7 +18,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: backend
-          image: ghcr.io/dinerozz/web-behavior:main
+          image: ghcr.io/dinerozz/web-behavior:master
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
