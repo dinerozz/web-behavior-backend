@@ -81,7 +81,7 @@ jobs:
 
             # Обновляем образ в deployment
             echo "🔄 Обновляем образ в deployment..."
-            sed -i "s|ghcr.io/dinerozz/web-behavior:main|ghcr.io/${{ github.repository_owner }}/web-behavior:main|g" k3s/backend-deployment.yaml
+            sed -i "s|ghcr.io/dinerozz/web-behavior:master|ghcr.io/${{ github.repository_owner }}/web-behavior:master|g" k3s/backend-deployment.yaml
 
             # Creating actual secrets
             echo "🔐 Creating secrets..."
