@@ -132,7 +132,7 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 	docs.SwaggerInfo.Version = "1.0"
 	docs.SwaggerInfo.BasePath = "/api/v1"
 
-	r.Use(middleware.SwaggerHostMiddleware())
+	//r.Use(middleware.SwaggerHostMiddleware())
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
