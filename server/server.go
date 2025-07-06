@@ -6,8 +6,11 @@ import (
 	"github.com/dinerozz/web-behavior-backend/config"
 	"github.com/dinerozz/web-behavior-backend/docs"
 	userHandler "github.com/dinerozz/web-behavior-backend/internal/handler/user"
+	handler "github.com/dinerozz/web-behavior-backend/internal/handler/user_behavior"
+	userBehaviorHandler "github.com/dinerozz/web-behavior-backend/internal/handler/user_behavior"
 	"github.com/dinerozz/web-behavior-backend/internal/repository"
 	"github.com/dinerozz/web-behavior-backend/internal/service/user"
+	service "github.com/dinerozz/web-behavior-backend/internal/service/user_behavior"
 	"github.com/dinerozz/web-behavior-backend/middleware"
 	"github.com/gin-gonic/gin"
 	"log"
@@ -23,7 +26,8 @@ import (
 )
 
 type RouterHandler struct {
-	userHandler *userHandler.UserHandler
+	userHandler         *userHandler.UserHandler
+	userBehaviorHandler *userBehaviorHandler.UserBehaviorHandler
 }
 
 func RunServer(config *config.Config) {
@@ -49,10 +53,12 @@ func RunServer(config *config.Config) {
 	defer db.Close()
 
 	userRepo := repository.NewUserRepository(db)
-
 	userSrv := user.NewUserService(userRepo)
-
 	userHandler := userHandler.NewUserHandler(userSrv)
+
+	userBehaviorRepo := repository.NewUserBehaviorRepository(db)
+	userBehaviorService := service.NewUserBehaviorService(userBehaviorRepo)
+	userBehaviorHandler := handler.NewUserBehaviorHandler(userBehaviorService)
 
 	routerHandler := &RouterHandler{
 		userHandler: userHandler,
@@ -143,6 +149,7 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 	publicRoutes := r.Group("/api/v1/public")
 	{
 		publicRoutes.POST("/users/auth", routerHandler.userHandler.CreateOrAuthUserWithPassword)
+		publicRoutes.POST("/behaviors", routerHandler.userBehaviorHandler.CreateBehavior())
 	}
 
 	privateRoutes := r.Group("/api/v1/admin")

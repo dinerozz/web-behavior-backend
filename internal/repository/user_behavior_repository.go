@@ -4,6 +4,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	uuid2 "github.com/gofrs/uuid"
 	"github.com/google/uuid"
@@ -81,7 +82,7 @@ func (r *userBehaviorRepository) GetByID(ctx context.Context, id uuid.UUID) (*en
 
 	err := r.db.GetContext(ctx, &behavior, query, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
