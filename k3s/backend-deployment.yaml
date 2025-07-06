@@ -21,7 +21,7 @@ spec:
           image: ghcr.io/dinerozz/web-behavior:master
           imagePullPolicy: Always
           ports:
-            - containerPort: 8080
+            - containerPort: 5555
           env:
             - name: PORT
               valueFrom:
@@ -78,12 +78,12 @@ spec:
           livenessProbe:
             httpGet:
               path: /health
-              port: 8080
+              port: 5555
             initialDelaySeconds: 30
             periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /health
-              port: 8080
+              port: 5555
             initialDelaySeconds: 5
             periodSeconds: 5

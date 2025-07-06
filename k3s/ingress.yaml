@@ -17,4 +17,4 @@ spec:
               service:
                 name: web-behavior-backend-service
                 port:
-                  number: 8080
+                  number: 5555
