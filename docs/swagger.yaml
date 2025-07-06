@@ -1,4 +1,74 @@
+definitions:
+  request.CreateUserWithPassword:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  response.User:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      password:
+        type: string
+      username:
+        type: string
+    type: object
+  wrapper.ErrorWrapper:
+    properties:
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  wrapper.ResponseWrapper:
+    properties:
+      data: {}
+      success:
+        type: boolean
+    type: object
 info:
   contact: {}
-paths: {}
+paths:
+  /users/auth:
+    post:
+      consumes:
+      - application/json
+      description: Create a new user or authenticate an existing user with password
+      parameters:
+      - description: User object
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/request.CreateUserWithPassword'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.User'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Create or authenticate user with password
+      tags:
+      - users
 swagger: "2.0"
