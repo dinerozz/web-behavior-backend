@@ -10,11 +10,11 @@ import (
 
 var jwtSecret = []byte("SECRET")
 
-func GenerateToken(userID uuid.UUID, telegramID string) (string, error) {
+func GenerateToken(userID uuid.UUID, username string) (string, error) {
 	claims := jwt.MapClaims{
-		"telegram_id": telegramID,
-		"user_id": userID.String(),
-		"exp":     time.Now().Add(time.Hour * 72).Unix(),
+		"username": username,
+		"user_id":  userID.String(),
+		"exp":      time.Now().Add(time.Hour * 72).Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -24,11 +24,11 @@ func GenerateToken(userID uuid.UUID, telegramID string) (string, error) {
 func ValidateToken(tokenString string) (jwt.MapClaims, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, errors.New("invalid signing method")
+			return nil, errors.New("invalid signing method")
 		}
 
 		return jwtSecret, nil
-})
+	})
 
 	if err != nil {
 		return nil, err

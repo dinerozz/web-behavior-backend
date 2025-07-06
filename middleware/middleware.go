@@ -26,7 +26,6 @@ func AuthenticationMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		c.Set("telegram_id", claims["telegram_id"])
 		c.Set("user_id", claims["user_id"])
 		c.Next()
 	}
