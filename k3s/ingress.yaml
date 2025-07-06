@@ -1,0 +1,20 @@
+# ingress.yaml (для доступа извне)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: expense-tracker-ingress
+  namespace: expense-tracker
+  annotations:
+    kubernetes.io/ingress.class: "traefik"
+spec:
+  rules:
+    - host: finansly.space
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: expense-tracker-backend-service
+                port:
+                  number: 8080

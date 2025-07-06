@@ -1,0 +1,14 @@
+# postgres-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: expense-tracker
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+      nodePort: 30432
+  type: NodePort

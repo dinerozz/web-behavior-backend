@@ -1,0 +1,148 @@
+name: Deploy Go App to Kubernetes
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.23
+
+      - name: Install dependencies
+        run: go mod tidy
+
+      - name: Login to GitHub Container Registry
+        run: docker login ghcr.io -u ${{ github.repository_owner }} -p "${{ secrets.GHCR_TOKEN }}"
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/expense-tracker
+
+      - name: Build and push
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Copy Kubernetes manifests to server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "k3s/"
+          target: "/home/finansly/finansly/"
+
+      - name: Deploy to Kubernetes via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            echo "🚀 Starting Kubernetes deployment..."
+
+            
+            if ! command -v kubectl &> /dev/null; then
+                echo "❌ kubectl not found"
+                exit 1
+            fi
+
+            cd /home/finansly/finansly
+
+            # Обновляем образ в deployment
+            echo "🔄 Обновляем образ в deployment..."
+            sed -i "s|ghcr.io/your-username/expense-tracker:main|ghcr.io/${{ github.repository_owner }}/expense-tracker:main|g" k3s/backend-deployment.yaml
+
+            # Creating actual secrets
+            echo "🔐 Creating secrets..."
+            cat > k3s/secret-values.yaml << EOF
+            apiVersion: v1
+            kind: Secret
+            metadata:
+              name: expense-tracker-secret
+              namespace: expense-tracker
+            type: Opaque
+            data:
+              DB_PASS: $(echo -n "${{ secrets.DB_PASS }}" | base64 -w 0)
+              JWT_SECRET: $(echo -n "${{ secrets.JWT_SECRET }}" | base64 -w 0)
+              TELEGRAM_BOT_TOKEN: $(echo -n "${{ secrets.TELEGRAM_BOT_TOKEN }}" | base64 -w 0)
+            EOF
+            
+            echo "🔐 Creating ImagePullSecret..."
+            cat > k3s/ghcr-secret.yaml << EOF
+            apiVersion: v1
+            kind: Secret
+            metadata:
+              name: ghcr-secret
+              namespace: expense-tracker
+            type: kubernetes.io/dockerconfigjson
+            data:
+              .dockerconfigjson: $(echo -n '{"auths":{"ghcr.io":{"username":"${{ github.repository_owner }}","password":"${{ secrets.GHCR_TOKEN }}","auth":"'$(echo -n "${{ github.repository_owner }}:${{ secrets.GHCR_TOKEN }}" | base64 -w 0)'"}}}'| base64 -w 0)
+            EOF
+
+            echo "📁 creating namespace..."
+            kubectl apply -f k3s/namespace.yaml
+
+            echo "🔐 creating secrets..."
+            kubectl apply -f k3s/secret-values.yaml
+            kubectl apply -f k3s/ghcr-secret.yaml
+            kubectl apply -f k3s/configmap.yaml
+
+            echo "🐘 Deploying PostgreSQL..."
+            kubectl apply -f k3s/postgres-pvc.yaml
+            kubectl apply -f k3s/postgres-deployment.yaml
+            kubectl apply -f k3s/postgres-service.yaml
+
+            echo "⏳ Waiting PostgreSQL..."
+            kubectl rollout status deployment/postgres -n expense-tracker --timeout=300s
+
+            echo "🏗️ Deploying backend..."
+            kubectl apply -f k3s/backend-deployment.yaml
+            kubectl apply -f k3s/backend-service.yaml
+
+            echo "⏳ Waiting for backend..."
+            kubectl rollout status deployment/expense-tracker-backend -n expense-tracker --timeout=300s
+
+            echo "🌐 Configuring ingress..."
+            kubectl apply -f k3s/ingress.yaml
+
+            echo "📊 Deploy status:"
+            kubectl get pods -n expense-tracker
+            kubectl get services -n expense-tracker
+
+            kubectl rollout restart deployment/expense-tracker-backend -n expense-tracker
+
+            echo "🧹 Pruning..."
+            docker system prune -f
+
+            echo "✅ Kubernetes deployment completed successfully!"

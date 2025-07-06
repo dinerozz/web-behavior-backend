@@ -1,0 +1,46 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:15
+    container_name: web_behavior_db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASS}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - web-behavior-network
+
+  backend:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/web_behavior:main
+    container_name: web_behavior_backend
+    restart: unless-stopped
+    environment:
+      - PORT=${PORT}
+      - DB_HOST=web_behavior_db
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+      - DB_NAME=${DB_NAME}
+      - DB_SSLMODE=${DB_SSLMODE}
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - db
+    ports:
+      - "${PORT}:${PORT}"
+    volumes:
+      - ./.env:/root/.env
+    networks:
+      - web-behavior-network
+
+volumes:
+  pgdata:
+
+networks:
+  web-behavior-network:
+    driver: bridge

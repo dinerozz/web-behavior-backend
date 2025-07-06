@@ -1,0 +1,89 @@
+# backend-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: expense-tracker-backend
+  namespace: expense-tracker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: expense-tracker-backend
+  template:
+    metadata:
+      labels:
+        app: expense-tracker-backend
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: backend
+          image: ghcr.io/dinerozz/expense-tracker:main
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: expense-tracker-config
+                  key: PORT
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: expense-tracker-config
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: expense-tracker-config
+                  key: DB_PORT
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: expense-tracker-config
+                  key: DB_USER
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: expense-tracker-config
+                  key: DB_NAME
+            - name: DB_SSLMODE
+              valueFrom:
+                configMapKeyRef:
+                  name: expense-tracker-config
+                  key: DB_SSLMODE
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: expense-tracker-secret
+                  key: DB_PASS
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: expense-tracker-secret
+                  key: JWT_SECRET
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: expense-tracker-secret
+                  key: TELEGRAM_BOT_TOKEN
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
