@@ -1,4 +1,117 @@
 definitions:
+  entity.BatchCreateUserBehaviorRequest:
+    properties:
+      events:
+        items:
+          $ref: '#/definitions/entity.CreateUserBehaviorRequest'
+        type: array
+    required:
+    - events
+    type: object
+  entity.CreateUserBehaviorRequest:
+    properties:
+      key:
+        type: string
+      sessionId:
+        type: string
+      ts:
+        type: string
+      type:
+        type: string
+      url:
+        type: string
+      userId:
+        type: string
+      userName:
+        type: string
+      x:
+        type: integer
+      "y":
+        type: integer
+    required:
+    - sessionId
+    - ts
+    - type
+    - url
+    type: object
+  entity.SessionSummary:
+    properties:
+      duration:
+        description: в секундах
+        type: integer
+      endTime:
+        type: string
+      eventsCount:
+        type: integer
+      sessionId:
+        type: string
+      startTime:
+        type: string
+      urls:
+        items:
+          type: string
+        type: array
+      userId:
+        type: string
+      userName:
+        type: string
+    type: object
+  entity.URLStats:
+    properties:
+      count:
+        type: integer
+      url:
+        type: string
+    type: object
+  entity.UserBehavior:
+    properties:
+      createdAt:
+        type: string
+      id:
+        type: string
+      key:
+        type: string
+      sessionId:
+        type: string
+      ts:
+        type: string
+      type:
+        type: string
+      updatedAt:
+        type: string
+      url:
+        type: string
+      userId:
+        type: string
+      userName:
+        type: string
+      x:
+        type: integer
+      "y":
+        type: integer
+    required:
+    - sessionId
+    - ts
+    - type
+    - url
+    type: object
+  entity.UserBehaviorStats:
+    properties:
+      eventsByType:
+        additionalProperties:
+          type: integer
+        type: object
+      popularUrls:
+        items:
+          $ref: '#/definitions/entity.URLStats'
+        type: array
+      totalEvents:
+        type: integer
+      uniqueSessions:
+        type: integer
+      uniqueUsers:
+        type: integer
+    type: object
   request.CreateUserWithPassword:
     properties:
       password:
@@ -36,6 +149,348 @@ definitions:
 info:
   contact: {}
 paths:
+  /behaviors:
+    get:
+      consumes:
+      - application/json
+      description: Get user behavior events with optional filters
+      parameters:
+      - description: User ID
+        in: query
+        name: userId
+        type: string
+      - description: Session ID
+        in: query
+        name: sessionId
+        type: string
+      - description: Event type
+        in: query
+        name: eventType
+        type: string
+      - description: URL (partial match)
+        in: query
+        name: url
+        type: string
+      - description: Start time (RFC3339 format)
+        in: query
+        name: startTime
+        type: string
+      - description: End time (RFC3339 format)
+        in: query
+        name: endTime
+        type: string
+      - description: 'Limit (default: 100, max: 1000)'
+        in: query
+        name: limit
+        type: integer
+      - description: 'Offset (default: 0)'
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/entity.UserBehavior'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get user behaviors
+      tags:
+      - user-behaviors
+    post:
+      consumes:
+      - application/json
+      description: Create a single user behavior event
+      parameters:
+      - description: Behavior data
+        in: body
+        name: behavior
+        required: true
+        schema:
+          $ref: '#/definitions/entity.CreateUserBehaviorRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/entity.UserBehavior'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Create user behavior event
+      tags:
+      - user-behaviors
+  /behaviors/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specific user behavior event
+      parameters:
+      - description: Behavior ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  type: string
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Delete behavior
+      tags:
+      - user-behaviors
+    get:
+      consumes:
+      - application/json
+      description: Get a specific user behavior event by ID
+      parameters:
+      - description: Behavior ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/entity.UserBehavior'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get behavior by ID
+      tags:
+      - user-behaviors
+  /behaviors/batch:
+    post:
+      consumes:
+      - application/json
+      description: Create multiple user behavior events in one request
+      parameters:
+      - description: Behaviors data
+        in: body
+        name: behaviors
+        required: true
+        schema:
+          $ref: '#/definitions/entity.BatchCreateUserBehaviorRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  type: string
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Batch create user behavior events
+      tags:
+      - user-behaviors
+  /behaviors/sessions/{sessionId}:
+    get:
+      consumes:
+      - application/json
+      description: Get summary information about a specific session
+      parameters:
+      - description: Session ID
+        in: path
+        name: sessionId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/entity.SessionSummary'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get session summary
+      tags:
+      - user-behaviors
+  /behaviors/stats:
+    get:
+      consumes:
+      - application/json
+      description: Get statistics about user behaviors
+      parameters:
+      - description: User ID
+        in: query
+        name: userId
+        type: string
+      - description: Session ID
+        in: query
+        name: sessionId
+        type: string
+      - description: Event type
+        in: query
+        name: eventType
+        type: string
+      - description: URL (partial match)
+        in: query
+        name: url
+        type: string
+      - description: Start time (RFC3339 format)
+        in: query
+        name: startTime
+        type: string
+      - description: End time (RFC3339 format)
+        in: query
+        name: endTime
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/entity.UserBehaviorStats'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get behavior statistics
+      tags:
+      - user-behaviors
+  /behaviors/users/{userId}/sessions:
+    get:
+      consumes:
+      - application/json
+      description: Get all sessions for a specific user
+      parameters:
+      - description: User ID
+        in: path
+        name: userId
+        required: true
+        type: string
+      - description: 'Limit (default: 50, max: 200)'
+        in: query
+        name: limit
+        type: integer
+      - description: 'Offset (default: 0)'
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/entity.SessionSummary'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get user sessions
+      tags:
+      - user-behaviors
   /users/auth:
     post:
       consumes:

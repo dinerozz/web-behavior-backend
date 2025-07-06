@@ -30,7 +30,7 @@ func NewUserBehaviorHandler(service service.UserBehaviorService) *UserBehaviorHa
 // @Accept       json
 // @Produce      json
 // @Param        behavior  body      entity.CreateUserBehaviorRequest  true  "Behavior data"
-// @Success      201       {object}  wrapper.SuccessResponse{data=entity.UserBehavior}
+// @Success      201       {object}  wrapper.ResponseWrapper{data=entity.UserBehavior}
 // @Failure      400       {object}  wrapper.ErrorWrapper
 // @Failure      500       {object}  wrapper.ErrorWrapper
 // @Router       /behaviors [post]
@@ -63,7 +63,7 @@ func (h *UserBehaviorHandler) CreateBehavior(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Param        behaviors  body      entity.BatchCreateUserBehaviorRequest  true  "Behaviors data"
-// @Success      201        {object}  wrapper.SuccessResponse{data=string}
+// @Success      201        {object}  wrapper.ResponseWrapper{data=string}
 // @Failure      400        {object}  wrapper.ErrorWrapper
 // @Failure      500        {object}  wrapper.ErrorWrapper
 // @Router       /behaviors/batch [post]
@@ -96,7 +96,7 @@ func (h *UserBehaviorHandler) BatchCreateBehaviors(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Param        id   path      string  true  "Behavior ID"
-// @Success      200  {object}  wrapper.SuccessResponse{data=entity.UserBehavior}
+// @Success      200  {object}  wrapper.ResponseWrapper{data=entity.UserBehavior}
 // @Failure      400  {object}  wrapper.ErrorWrapper
 // @Failure      404  {object}  wrapper.ErrorWrapper
 // @Failure      500  {object}  wrapper.ErrorWrapper

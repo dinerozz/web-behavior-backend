@@ -61,7 +61,8 @@ func RunServer(config *config.Config) {
 	userBehaviorHandler := handler.NewUserBehaviorHandler(userBehaviorService)
 
 	routerHandler := &RouterHandler{
-		userHandler: userHandler,
+		userHandler:         userHandler,
+		userBehaviorHandler: userBehaviorHandler,
 	}
 
 	r := setupRouter(routerHandler)
@@ -149,7 +150,7 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 	publicRoutes := r.Group("/api/v1/public")
 	{
 		publicRoutes.POST("/users/auth", routerHandler.userHandler.CreateOrAuthUserWithPassword)
-		publicRoutes.POST("/behaviors", routerHandler.userBehaviorHandler.CreateBehavior())
+		publicRoutes.POST("/behaviors", routerHandler.userBehaviorHandler.CreateBehavior)
 	}
 
 	privateRoutes := r.Group("/api/v1/admin")
