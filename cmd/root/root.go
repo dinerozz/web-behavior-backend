@@ -2,10 +2,10 @@ package root
 
 import (
 	"fmt"
+	"github.com/dinerozz/web-behavior-backend/cmd/migrate"
+	"github.com/dinerozz/web-behavior-backend/config"
+	"github.com/dinerozz/web-behavior-backend/server"
 	"github.com/spf13/cobra"
-	"web-behavior-backend/cmd/migrate"
-	"web-behavior-backend/config"
-	"web-behavior-backend/server"
 )
 
 var rootCmd = &cobra.Command{

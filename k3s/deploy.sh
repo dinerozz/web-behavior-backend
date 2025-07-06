@@ -14,11 +14,11 @@ echo "📋 Checking cluster connection..."
 kubectl cluster-info
 
 echo "📁 Creating namespace..."
-kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k3s/namespace.yaml
 
 echo "🔐 apply secrets and configmap..."
-kubectl apply -f k8s/secret.yaml
-kubectl apply -f k8s/configmap.yaml
+kubectl apply -f k3s/secret.yaml
+kubectl apply -f k3s/configmap.yaml
 
 echo "🐘 Deploying PostgreSQL..."
 kubectl apply -f k3s/postgres-pvc.yaml
@@ -45,5 +45,5 @@ kubectl get services -n expense-tracker
 kubectl get ingress -n expense-tracker
 
 echo "✅ Deploy succeeded!"
-echo "🔗 available on: https://finansly.space"
+echo "🔗 available on: https://web-behavior.space"
 echo "💡 Add in /etc/hosts: echo '127.0.0.1 expense-tracker.local' | sudo tee -a /etc/hosts"

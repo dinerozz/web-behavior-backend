@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: expense-tracker-config
-  namespace: expense-tracker
+  name: web-behavior-config
+  namespace: web-behavior
 data:
   DB_HOST: "postgres-service"
   DB_PORT: "5432"
-  DB_NAME: "expense_tracker"
+  DB_NAME: "web_behavior_db"
   DB_USER: "dinero"
   DB_SSLMODE: "disable"
-  PORT: "8080"
+  PORT: "5555"
   ENV: "prod"

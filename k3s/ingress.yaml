@@ -2,19 +2,19 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: expense-tracker-ingress
-  namespace: expense-tracker
-  annotations:
-    kubernetes.io/ingress.class: "traefik"
+  name: web-behavior-ingress
+  namespace: web-behavior
+#  annotations:
+#    kubernetes.io/ingress.class: "traefik"
 spec:
   rules:
-    - host: finansly.space
+    - host: web-behavior.space
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: expense-tracker-backend-service
+                name: web-behavior-backend-service
                 port:
                   number: 8080

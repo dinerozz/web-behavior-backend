@@ -3,7 +3,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: postgres-pvc
-  namespace: expense-tracker
+  namespace: web-behavior
 spec:
   accessModes:
     - ReadWriteOnce

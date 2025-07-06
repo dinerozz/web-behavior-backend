@@ -2,23 +2,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: expense-tracker-backend
-  namespace: expense-tracker
+  name: web-behavior-backend
+  namespace: web-behavior
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: expense-tracker-backend
+      app: web-behavior-backend
   template:
     metadata:
       labels:
-        app: expense-tracker-backend
+        app: web-behavior-backend
     spec:
       imagePullSecrets:
         - name: ghcr-secret
       containers:
         - name: backend
-          image: ghcr.io/dinerozz/expense-tracker:main
+          image: ghcr.io/dinerozz/web-behavior:main
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -26,47 +26,47 @@ spec:
             - name: PORT
               valueFrom:
                 configMapKeyRef:
-                  name: expense-tracker-config
+                  name: web-behavior-config
                   key: PORT
             - name: DB_HOST
               valueFrom:
                 configMapKeyRef:
-                  name: expense-tracker-config
+                  name: web-behavior-config
                   key: DB_HOST
             - name: DB_PORT
               valueFrom:
                 configMapKeyRef:
-                  name: expense-tracker-config
+                  name: web-behavior-config
                   key: DB_PORT
             - name: DB_USER
               valueFrom:
                 configMapKeyRef:
-                  name: expense-tracker-config
+                  name: web-behavior-config
                   key: DB_USER
             - name: DB_NAME
               valueFrom:
                 configMapKeyRef:
-                  name: expense-tracker-config
+                  name: web-behavior-config
                   key: DB_NAME
             - name: DB_SSLMODE
               valueFrom:
                 configMapKeyRef:
-                  name: expense-tracker-config
+                  name: web-behavior-config
                   key: DB_SSLMODE
             - name: DB_PASS
               valueFrom:
                 secretKeyRef:
-                  name: expense-tracker-secret
+                  name: web-behavior-secret
                   key: DB_PASS
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: expense-tracker-secret
+                  name: web-behavior-secret
                   key: JWT_SECRET
             - name: TELEGRAM_BOT_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: expense-tracker-secret
+                  name: web-behavior-secret
                   key: TELEGRAM_BOT_TOKEN
           resources:
             requests:

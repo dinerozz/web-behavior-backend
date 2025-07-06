@@ -28,7 +28,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: ghcr.io/${{ github.repository_owner }}/expense-tracker
+          images: ghcr.io/${{ github.repository_owner }}/web-behavior
 
       - name: Build and push
         uses: docker/build-push-action@v4
@@ -60,7 +60,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "k3s/"
-          target: "/home/finansly/finansly/"
+          target: "/home/finansly/web-behavior/"
 
       - name: Deploy to Kubernetes via SSH
         uses: appleboy/ssh-action@master
@@ -77,11 +77,11 @@ jobs:
                 exit 1
             fi
 
-            cd /home/finansly/finansly
+            cd /home/finansly/web-behavior
 
             # Обновляем образ в deployment
             echo "🔄 Обновляем образ в deployment..."
-            sed -i "s|ghcr.io/your-username/expense-tracker:main|ghcr.io/${{ github.repository_owner }}/expense-tracker:main|g" k3s/backend-deployment.yaml
+            sed -i "s|ghcr.io/dinerozz/web-behavior:main|ghcr.io/${{ github.repository_owner }}/web-behavior:main|g" k3s/backend-deployment.yaml
 
             # Creating actual secrets
             echo "🔐 Creating secrets..."
@@ -89,8 +89,8 @@ jobs:
             apiVersion: v1
             kind: Secret
             metadata:
-              name: expense-tracker-secret
-              namespace: expense-tracker
+              name: web-behavior-secret
+              namespace: web-behavior
             type: Opaque
             data:
               DB_PASS: $(echo -n "${{ secrets.DB_PASS }}" | base64 -w 0)
@@ -104,7 +104,7 @@ jobs:
             kind: Secret
             metadata:
               name: ghcr-secret
-              namespace: expense-tracker
+              namespace: web-behavior
             type: kubernetes.io/dockerconfigjson
             data:
               .dockerconfigjson: $(echo -n '{"auths":{"ghcr.io":{"username":"${{ github.repository_owner }}","password":"${{ secrets.GHCR_TOKEN }}","auth":"'$(echo -n "${{ github.repository_owner }}:${{ secrets.GHCR_TOKEN }}" | base64 -w 0)'"}}}'| base64 -w 0)
@@ -124,23 +124,23 @@ jobs:
             kubectl apply -f k3s/postgres-service.yaml
 
             echo "⏳ Waiting PostgreSQL..."
-            kubectl rollout status deployment/postgres -n expense-tracker --timeout=300s
+            kubectl rollout status deployment/postgres -n web-behavior --timeout=300s
 
             echo "🏗️ Deploying backend..."
             kubectl apply -f k3s/backend-deployment.yaml
             kubectl apply -f k3s/backend-service.yaml
 
             echo "⏳ Waiting for backend..."
-            kubectl rollout status deployment/expense-tracker-backend -n expense-tracker --timeout=300s
+            kubectl rollout status deployment/web-behavior-backend -n web-behavior --timeout=300s
 
             echo "🌐 Configuring ingress..."
             kubectl apply -f k3s/ingress.yaml
 
             echo "📊 Deploy status:"
-            kubectl get pods -n expense-tracker
-            kubectl get services -n expense-tracker
+            kubectl get pods -n web-behavior
+            kubectl get services -n web-behavior
 
-            kubectl rollout restart deployment/expense-tracker-backend -n expense-tracker
+            kubectl rollout restart deployment/web-behavior-backend -n web-behavior
 
             echo "🧹 Pruning..."
             docker system prune -f

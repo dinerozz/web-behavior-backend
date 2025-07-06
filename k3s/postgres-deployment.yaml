@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: postgres
-  namespace: expense-tracker
+  namespace: web-behavior
 spec:
   replicas: 1
   selector:
@@ -22,17 +22,17 @@ spec:
             - name: POSTGRES_DB
               valueFrom:
                 configMapKeyRef:
-                  name: expense-tracker-config
+                  name: web-behavior-config
                   key: DB_NAME
             - name: POSTGRES_USER
               valueFrom:
                 configMapKeyRef:
-                  name: expense-tracker-config
+                  name: web-behavior-config
                   key: DB_USER
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: expense-tracker-secret
+                  name: web-behavior-secret
                   key: DB_PASS
           volumeMounts:
             - name: postgres-storage
