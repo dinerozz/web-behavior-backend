@@ -71,4 +71,32 @@ paths:
       summary: Create or authenticate user with password
       tags:
       - users
+  /users/profile:
+    get:
+      consumes:
+      - application/json
+      description: Get user by ID
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.User'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get user by ID
+      tags:
+      - users
 swagger: "2.0"

@@ -143,10 +143,9 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 
 	privateRoutes := r.Group("/api/v1/admin")
 	privateRoutes.Use(middleware.AuthenticationMiddleware())
-	//{
-	//	privateRoutes.GET("/users/profile", routerHandler.userHandler.GetUserById)
-	//	privateRoutes.PATCH("/users/currency", routerHandler.userHandler.UpdateUserCurrency)
-	//}
+	{
+		privateRoutes.GET("/users/profile", routerHandler.userHandler.GetUserById)
+	}
 
 	return r
 }

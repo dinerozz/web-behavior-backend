@@ -5,10 +5,10 @@ import (
 	"github.com/dinerozz/web-behavior-backend/internal/model/response/wrapper"
 	"github.com/dinerozz/web-behavior-backend/internal/service/user"
 	"github.com/dinerozz/web-behavior-backend/pkg/utils"
-	"net/http"
-
 	"github.com/gin-gonic/gin"
+	"github.com/gofrs/uuid"
 	"golang.org/x/crypto/bcrypt"
+	"net/http"
 )
 
 type UserHandler struct {
@@ -91,4 +91,36 @@ func (h *UserHandler) CreateOrAuthUserWithPassword(c *gin.Context) {
 
 	c.SetCookie("token", token, 3600*24, "/", "", false, true)
 	c.JSON(http.StatusOK, wrapper.ResponseWrapper{Data: userResponse, Success: true})
+}
+
+// GetUserById godoc
+// @Summary Get user by ID
+// @Description Get user by ID
+// @Tags users
+// @Accept json
+// @Produce json
+// @Success 200 {object} wrapper.ResponseWrapper{data=response.User}
+// @Failure 401 {object} wrapper.ErrorWrapper
+// @Failure 500 {object} wrapper.ErrorWrapper
+// @Router /users/profile [get]
+func (h *UserHandler) GetUserById(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, wrapper.ErrorWrapper{Message: "User ID not found", Success: false})
+		return
+	}
+
+	userUUID, err := uuid.FromString(userID.(string))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{Message: err.Error(), Success: false})
+		return
+	}
+
+	user, err := h.srv.GetUserById(userUUID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{Message: err.Error(), Success: false})
+		return
+	}
+
+	c.JSON(http.StatusOK, wrapper.ResponseWrapper{Data: user, Success: true})
 }

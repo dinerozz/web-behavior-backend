@@ -41,13 +41,12 @@ func (r *UserRepository) CreateOrAuthenticateUserWithPassword(user *request.Crea
 }
 
 func (r *UserRepository) GetUserById(userID uuid.UUID) (response.User, error) {
-	query := `SELECT u.id, u.username, curr.id, curr.name, curr.code 
+	query := `SELECT u.id, u.username 
     FROM users u WHERE u.id = $1`
 
 	user := response.User{}
-	var currencyID, currencyName, currencyCode sql.NullString
 
-	err := r.db.QueryRow(query, userID).Scan(&user.ID, &user.Username, &currencyID, &currencyName, &currencyCode)
+	err := r.db.QueryRow(query, userID).Scan(&user.ID, &user.Username)
 	if err != nil {
 		return response.User{}, err
 	}
