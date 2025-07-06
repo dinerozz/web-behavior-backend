@@ -127,12 +127,19 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
 
-		r.GET("/health", func(c *gin.Context) {
-			c.JSON(200, gin.H{
-				"status":    "healthy",
-				"timestamp": time.Now().Unix(),
-				"service":   "web-behavior-app",
-			})
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	})
+
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status":    "healthy",
+			"timestamp": time.Now().Unix(),
+			"service":   "web-behavior-app",
 		})
 	})
 
@@ -143,14 +150,14 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 	docs.SwaggerInfo.Version = "1.0"
 	docs.SwaggerInfo.BasePath = "/api/v1"
 
-	//r.Use(middleware.SwaggerHostMiddleware())
-
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
+	// Public routes
 	publicRoutes := r.Group("/api/v1/public")
 	{
 		publicRoutes.POST("/users/auth", routerHandler.userHandler.CreateOrAuthUserWithPassword)
 		publicRoutes.POST("/behaviors", routerHandler.userBehaviorHandler.CreateBehavior)
+		publicRoutes.GET("/behaviors", routerHandler.userBehaviorHandler.GetBehaviors)
 	}
 
 	privateRoutes := r.Group("/api/v1/admin")

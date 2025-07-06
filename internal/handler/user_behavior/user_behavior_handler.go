@@ -52,7 +52,8 @@ func (h *UserBehaviorHandler) CreateBehavior(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, wrapper.ResponseWrapper{
-		Data: behavior,
+		Data:    behavior,
+		Success: true,
 	})
 }
 
@@ -126,7 +127,7 @@ func (h *UserBehaviorHandler) GetBehaviorByID(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, wrapper.ResponseWrapper{
-		Data: behavior,
+		Data: behavior, Success: true,
 	})
 }
 
@@ -221,7 +222,8 @@ func (h *UserBehaviorHandler) GetBehaviors(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, wrapper.ResponseWrapper{
-		Data: behaviors,
+		Data:    behaviors,
+		Success: true,
 	})
 }
 
@@ -292,7 +294,8 @@ func (h *UserBehaviorHandler) GetStats(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, wrapper.ResponseWrapper{
-		Data: stats,
+		Data:    stats,
+		Success: true,
 	})
 }
 
@@ -332,7 +335,8 @@ func (h *UserBehaviorHandler) GetSessionSummary(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, wrapper.ResponseWrapper{
-		Data: summary,
+		Data:    summary,
+		Success: true,
 	})
 }
 
@@ -392,7 +396,8 @@ func (h *UserBehaviorHandler) GetUserSessions(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, wrapper.ResponseWrapper{
-		Data: sessions,
+		Data:    sessions,
+		Success: true,
 	})
 }
 
@@ -433,7 +438,8 @@ func (h *UserBehaviorHandler) DeleteBehavior(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, wrapper.ResponseWrapper{
-		Data: "Behavior deleted successfully",
+		Data:    "Behavior deleted successfully",
+		Success: true,
 	})
 }
 
