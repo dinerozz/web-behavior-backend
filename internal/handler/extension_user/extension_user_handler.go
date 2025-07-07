@@ -364,7 +364,7 @@ func (h *ExtensionUserHandler) DeleteExtensionUser(c *gin.Context) {
 // @Failure      400        {object}  wrapper.ErrorWrapper
 // @Failure      401        {object}  wrapper.ErrorWrapper
 // @Failure      500        {object}  wrapper.ErrorWrapper
-// @Router       /users/auth/validate [post]
+// @Router       /extension/users/auth/validate [post]
 func (h *ExtensionUserHandler) ValidateAPIKey(c *gin.Context) {
 	apiKey := c.GetHeader("X-API-Key")
 	if apiKey == "" {
