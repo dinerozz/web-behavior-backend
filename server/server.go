@@ -165,6 +165,7 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 	publicRoutes := r.Group("/api/v1/inayla")
 	{
 		publicRoutes.POST("/behaviors", routerHandler.userBehaviorHandler.CreateBehavior)
+		publicRoutes.POST("/behaviors/batch", routerHandler.userBehaviorHandler.BatchCreateBehaviors)
 
 		extensionRoutes := publicRoutes.Group("/extension")
 		extensionRoutes.Use(middleware.APIKeyMiddleware(routerHandler.userExtensionService))
