@@ -25,7 +25,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "user-behaviors"
+                    "/api/v1/admin/behaviors"
                 ],
                 "summary": "Get user behaviors",
                 "parameters": [
@@ -123,7 +123,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "user-behaviors"
+                    "/api/v1/inayla/behaviors"
                 ],
                 "summary": "Create user behavior event",
                 "parameters": [
@@ -239,7 +239,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "user-behaviors"
+                    "/api/v1/admin/behaviors"
                 ],
                 "summary": "Get session summary",
                 "parameters": [
@@ -301,7 +301,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "user-behaviors"
+                    "/api/v1/admin/behaviors"
                 ],
                 "summary": "Get behavior statistics",
                 "parameters": [
@@ -386,7 +386,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "user-behaviors"
+                    "/api/v1/admin/behaviors"
                 ],
                 "summary": "Get user sessions",
                 "parameters": [
@@ -457,7 +457,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "user-behaviors"
+                    "/api/v1/admin/behaviors"
                 ],
                 "summary": "Get behavior by ID",
                 "parameters": [
@@ -517,7 +517,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "user-behaviors"
+                    "/api/v1/admin/behaviors"
                 ],
                 "summary": "Delete behavior",
                 "parameters": [

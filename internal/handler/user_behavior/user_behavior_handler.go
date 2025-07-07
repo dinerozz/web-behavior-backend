@@ -26,7 +26,7 @@ func NewUserBehaviorHandler(service service.UserBehaviorService) *UserBehaviorHa
 // CreateBehavior godoc
 // @Summary      Create user behavior event
 // @Description  Create a single user behavior event
-// @Tags         user-behaviors
+// @Tags         /api/v1/inayla/behaviors
 // @Accept       json
 // @Produce      json
 // @Param        behavior  body      entity.CreateUserBehaviorRequest  true  "Behavior data"
@@ -93,7 +93,7 @@ func (h *UserBehaviorHandler) BatchCreateBehaviors(c *gin.Context) {
 // GetBehaviorByID godoc
 // @Summary      Get behavior by ID
 // @Description  Get a specific user behavior event by ID
-// @Tags         user-behaviors
+// @Tags         /api/v1/admin/behaviors
 // @Accept       json
 // @Produce      json
 // @Param        id   path      string  true  "Behavior ID"
@@ -134,7 +134,7 @@ func (h *UserBehaviorHandler) GetBehaviorByID(c *gin.Context) {
 // GetBehaviors godoc
 // @Summary      Get user behaviors
 // @Description  Get user behavior events with optional filters
-// @Tags         user-behaviors
+// @Tags         /api/v1/admin/behaviors
 // @Accept       json
 // @Produce      json
 // @Param        userId     query     string  false  "User ID"
@@ -230,7 +230,7 @@ func (h *UserBehaviorHandler) GetBehaviors(c *gin.Context) {
 // GetStats godoc
 // @Summary      Get behavior statistics
 // @Description  Get statistics about user behaviors
-// @Tags         user-behaviors
+// @Tags         /api/v1/admin/behaviors
 // @Accept       json
 // @Produce      json
 // @Param        userId     query     string  false  "User ID"
@@ -302,7 +302,7 @@ func (h *UserBehaviorHandler) GetStats(c *gin.Context) {
 // GetSessionSummary godoc
 // @Summary      Get session summary
 // @Description  Get summary information about a specific session
-// @Tags         user-behaviors
+// @Tags         /api/v1/admin/behaviors
 // @Accept       json
 // @Produce      json
 // @Param        sessionId  path      string  true  "Session ID"
@@ -343,7 +343,7 @@ func (h *UserBehaviorHandler) GetSessionSummary(c *gin.Context) {
 // GetUserSessions godoc
 // @Summary      Get user sessions
 // @Description  Get all sessions for a specific user
-// @Tags         user-behaviors
+// @Tags         /api/v1/admin/behaviors
 // @Accept       json
 // @Produce      json
 // @Param        userId  path      string  true   "User ID"
@@ -404,7 +404,7 @@ func (h *UserBehaviorHandler) GetUserSessions(c *gin.Context) {
 // DeleteBehavior godoc
 // @Summary      Delete behavior
 // @Description  Delete a specific user behavior event
-// @Tags         user-behaviors
+// @Tags         /api/v1/admin/behaviors
 // @Accept       json
 // @Produce      json
 // @Param        id   path      string  true  "Behavior ID"
@@ -443,7 +443,6 @@ func (h *UserBehaviorHandler) DeleteBehavior(c *gin.Context) {
 	})
 }
 
-// RegisterRoutes регистрирует все маршруты для user behavior
 func (h *UserBehaviorHandler) RegisterRoutes(router *gin.RouterGroup) {
 	behaviors := router.Group("/behaviors")
 	{

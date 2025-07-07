@@ -281,7 +281,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Get user behaviors
       tags:
-      - user-behaviors
+      - /api/v1/admin/behaviors
     post:
       consumes:
       - application/json
@@ -315,7 +315,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Create user behavior event
       tags:
-      - user-behaviors
+      - /api/v1/inayla/behaviors
   /behaviors/{id}:
     delete:
       consumes:
@@ -353,7 +353,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Delete behavior
       tags:
-      - user-behaviors
+      - /api/v1/admin/behaviors
     get:
       consumes:
       - application/json
@@ -390,7 +390,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Get behavior by ID
       tags:
-      - user-behaviors
+      - /api/v1/admin/behaviors
   /behaviors/batch:
     post:
       consumes:
@@ -463,7 +463,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Get session summary
       tags:
-      - user-behaviors
+      - /api/v1/admin/behaviors
   /behaviors/stats:
     get:
       consumes:
@@ -516,7 +516,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Get behavior statistics
       tags:
-      - user-behaviors
+      - /api/v1/admin/behaviors
   /behaviors/users/{userId}/sessions:
     get:
       consumes:
@@ -560,7 +560,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Get user sessions
       tags:
-      - user-behaviors
+      - /api/v1/admin/behaviors
   /extension/username/{username}:
     get:
       consumes:

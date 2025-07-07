@@ -14,7 +14,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "user-behaviors"
+                    "/api/v1/admin/behaviors"
                 ],
                 "summary": "Get user behaviors",
                 "parameters": [
@@ -112,7 +112,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "user-behaviors"
+                    "/api/v1/inayla/behaviors"
                 ],
                 "summary": "Create user behavior event",
                 "parameters": [
@@ -228,7 +228,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "user-behaviors"
+                    "/api/v1/admin/behaviors"
                 ],
                 "summary": "Get session summary",
                 "parameters": [
@@ -290,7 +290,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "user-behaviors"
+                    "/api/v1/admin/behaviors"
                 ],
                 "summary": "Get behavior statistics",
                 "parameters": [
@@ -375,7 +375,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "user-behaviors"
+                    "/api/v1/admin/behaviors"
                 ],
                 "summary": "Get user sessions",
                 "parameters": [
@@ -446,7 +446,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "user-behaviors"
+                    "/api/v1/admin/behaviors"
                 ],
                 "summary": "Get behavior by ID",
                 "parameters": [
@@ -506,7 +506,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "user-behaviors"
+                    "/api/v1/admin/behaviors"
                 ],
                 "summary": "Delete behavior",
                 "parameters": [

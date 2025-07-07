@@ -168,8 +168,9 @@ func (r *userBehaviorRepository) GetStats(ctx context.Context, filter entity.Use
 	}
 
 	// Уникальные пользователи
-	uniqueUsersQuery := "SELECT COUNT(DISTINCT user_id) FROM user_behaviors" + whereClause + " AND user_id IS NOT NULL"
-	err = r.db.GetContext(ctx, &stats.UniqueUsers, uniqueUsersQuery, args...)
+	uniqueUsersWhereClause, uniqueUsersArgs := r.buildWhereClauseWithExtra(filter, "user_id IS NOT NULL")
+	uniqueUsersQuery := "SELECT COUNT(DISTINCT user_id) FROM user_behaviors" + uniqueUsersWhereClause
+	err = r.db.GetContext(ctx, &stats.UniqueUsers, uniqueUsersQuery, uniqueUsersArgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -356,6 +357,58 @@ func (r *userBehaviorRepository) buildWhereClause(filter entity.UserBehaviorFilt
 		args = append(args, *filter.EndTime)
 		argIndex++
 	}
+
+	if len(conditions) == 0 {
+		return "", args
+	}
+
+	return " WHERE " + strings.Join(conditions, " AND "), args
+}
+
+func (r *userBehaviorRepository) buildWhereClauseWithExtra(filter entity.UserBehaviorFilter, extraConditions ...string) (string, []interface{}) {
+	var conditions []string
+	var args []interface{}
+	argIndex := 1
+
+	// Основные условия из фильтра
+	if filter.UserID != nil {
+		conditions = append(conditions, fmt.Sprintf("user_id = $%d", argIndex))
+		args = append(args, *filter.UserID)
+		argIndex++
+	}
+
+	if filter.SessionID != nil {
+		conditions = append(conditions, fmt.Sprintf("session_id = $%d", argIndex))
+		args = append(args, *filter.SessionID)
+		argIndex++
+	}
+
+	if filter.EventType != nil {
+		conditions = append(conditions, fmt.Sprintf("event_type = $%d", argIndex))
+		args = append(args, *filter.EventType)
+		argIndex++
+	}
+
+	if filter.URL != nil {
+		conditions = append(conditions, fmt.Sprintf("url ILIKE $%d", argIndex))
+		args = append(args, "%"+*filter.URL+"%")
+		argIndex++
+	}
+
+	if filter.StartTime != nil {
+		conditions = append(conditions, fmt.Sprintf("timestamp >= $%d", argIndex))
+		args = append(args, *filter.StartTime)
+		argIndex++
+	}
+
+	if filter.EndTime != nil {
+		conditions = append(conditions, fmt.Sprintf("timestamp <= $%d", argIndex))
+		args = append(args, *filter.EndTime)
+		argIndex++
+	}
+
+	// Добавляем дополнительные условия
+	conditions = append(conditions, extraConditions...)
 
 	if len(conditions) == 0 {
 		return "", args

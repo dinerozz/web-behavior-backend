@@ -186,10 +186,12 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 	privateRoutes := r.Group("/api/v1/admin")
 	privateRoutes.Use(middleware.AuthenticationMiddleware())
 	{
-		extensionRoutes := privateRoutes.Group("/extension")
 
 		privateRoutes.GET("/users/profile", routerHandler.userHandler.GetUserById)
 		privateRoutes.GET("/behaviors", routerHandler.userBehaviorHandler.GetBehaviors)
+		privateRoutes.GET("/behaviors/stats", routerHandler.userBehaviorHandler.GetStats)
+
+		extensionRoutes := privateRoutes.Group("/extension")
 		extensionRoutes.POST("/users/generate", routerHandler.userExtensionHandler.CreateExtensionUser)
 		extensionRoutes.GET("/users", routerHandler.userExtensionHandler.GetAllExtensionUsers)
 		extensionRoutes.GET("/users/stats", routerHandler.userExtensionHandler.GetExtensionUserStats)
