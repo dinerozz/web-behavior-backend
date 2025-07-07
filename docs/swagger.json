@@ -568,7 +568,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "extension (admin)"
+                    "/api/v1/admin/extension"
                 ],
                 "summary": "Get extension user by username",
                 "parameters": [
@@ -630,7 +630,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "extension (admin)"
+                    "/api/v1/admin/extension"
                 ],
                 "summary": "Get all extension users",
                 "parameters": [
@@ -706,7 +706,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "extension (user)"
+                    "/api/v1/inayla/extension"
                 ],
                 "summary": "Validate API key",
                 "parameters": [
@@ -768,7 +768,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "extension (admin)"
+                    "/api/v1/admin/extension"
                 ],
                 "summary": "Create extension user",
                 "parameters": [
@@ -826,7 +826,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "extension (admin)"
+                    "/api/v1/admin/extension"
                 ],
                 "summary": "Get extension users statistics",
                 "responses": {
@@ -867,7 +867,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "extension (admin)"
+                    "/api/v1/admin/extension"
                 ],
                 "summary": "Get extension user by ID",
                 "parameters": [
@@ -927,7 +927,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "extension (admin)"
+                    "/api/v1/admin/extension"
                 ],
                 "summary": "Update extension user",
                 "parameters": [
@@ -996,7 +996,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "extension (admin)"
+                    "/api/v1/admin/extension"
                 ],
                 "summary": "Delete extension user",
                 "parameters": [
@@ -1058,7 +1058,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "extension (admin)"
+                    "/api/v1/admin/extension"
                 ],
                 "summary": "Regenerate API key",
                 "parameters": [
