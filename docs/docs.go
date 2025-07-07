@@ -925,69 +925,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/extension/users/auth": {
-            "post": {
-                "description": "Validate extension user API key",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "extension"
-                ],
-                "summary": "Validate API key",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "API Key",
-                        "name": "X-API-Key",
-                        "in": "header",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/wrapper.ResponseWrapper"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/entity.ExtensionUserPublic"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/wrapper.ErrorWrapper"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/wrapper.ErrorWrapper"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/wrapper.ErrorWrapper"
-                        }
-                    }
-                }
-            }
-        },
-        "/users": {
+        "/extension/users": {
             "get": {
                 "description": "Get list of extension users with optional filters",
                 "consumes": [
@@ -1063,6 +1001,126 @@ const docTemplate = `{
                 }
             }
         },
+        "/extension/users/auth": {
+            "post": {
+                "description": "Validate extension user API key",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "extension"
+                ],
+                "summary": "Validate API key",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "API Key",
+                        "name": "X-API-Key",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wrapper.ResponseWrapper"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/entity.ExtensionUserPublic"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/wrapper.ErrorWrapper"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/wrapper.ErrorWrapper"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/wrapper.ErrorWrapper"
+                        }
+                    }
+                }
+            }
+        },
+        "/extension/users/generate": {
+            "post": {
+                "description": "Create a new extension user with API key",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "extension"
+                ],
+                "summary": "Create extension user",
+                "parameters": [
+                    {
+                        "description": "User data",
+                        "name": "user",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/entity.CreateExtensionUserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wrapper.ResponseWrapper"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/entity.ExtensionUser"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/wrapper.ErrorWrapper"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/wrapper.ErrorWrapper"
+                        }
+                    }
+                }
+            }
+        },
         "/users/auth": {
             "post": {
                 "description": "Create a new user or authenticate an existing user with password",
@@ -1100,64 +1158,6 @@ const docTemplate = `{
                                     "properties": {
                                         "data": {
                                             "$ref": "#/definitions/response.User"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/wrapper.ErrorWrapper"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/wrapper.ErrorWrapper"
-                        }
-                    }
-                }
-            }
-        },
-        "/users/generate": {
-            "post": {
-                "description": "Create a new extension user with API key",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "extension"
-                ],
-                "summary": "Create extension user",
-                "parameters": [
-                    {
-                        "description": "User data",
-                        "name": "user",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/entity.CreateExtensionUserRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/wrapper.ResponseWrapper"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/entity.ExtensionUser"
                                         }
                                     }
                                 }

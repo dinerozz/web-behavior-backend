@@ -33,7 +33,7 @@ func NewExtensionUserHandler(service service.ExtensionUserService) *ExtensionUse
 // @Success      201   {object}  wrapper.ResponseWrapper{data=entity.ExtensionUser}
 // @Failure      400   {object}  wrapper.ErrorWrapper
 // @Failure      500   {object}  wrapper.ErrorWrapper
-// @Router       /users/generate [post]
+// @Router       /extension/users/generate [post]
 func (h *ExtensionUserHandler) CreateExtensionUser(c *gin.Context) {
 	var req entity.CreateExtensionUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -168,7 +168,7 @@ func (h *ExtensionUserHandler) GetExtensionUserByUsername(c *gin.Context) {
 // @Success      200        {object}  wrapper.ResponseWrapper{data=[]entity.ExtensionUserPublic}
 // @Failure      400        {object}  wrapper.ErrorWrapper
 // @Failure      500        {object}  wrapper.ErrorWrapper
-// @Router       /users [get]
+// @Router       /extension/users [get]
 func (h *ExtensionUserHandler) GetAllExtensionUsers(c *gin.Context) {
 	var filter entity.ExtensionUserFilter
 	if err := c.ShouldBindQuery(&filter); err != nil {

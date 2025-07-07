@@ -779,45 +779,7 @@ paths:
       summary: Get extension user by username
       tags:
       - extension
-  /extension/users/auth:
-    post:
-      consumes:
-      - application/json
-      description: Validate extension user API key
-      parameters:
-      - description: API Key
-        in: header
-        name: X-API-Key
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/wrapper.ResponseWrapper'
-            - properties:
-                data:
-                  $ref: '#/definitions/entity.ExtensionUserPublic'
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/wrapper.ErrorWrapper'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/wrapper.ErrorWrapper'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/wrapper.ErrorWrapper'
-      summary: Validate API key
-      tags:
-      - extension
-  /users:
+  /extension/users:
     get:
       consumes:
       - application/json
@@ -864,6 +826,79 @@ paths:
       summary: Get all extension users
       tags:
       - extension
+  /extension/users/auth:
+    post:
+      consumes:
+      - application/json
+      description: Validate extension user API key
+      parameters:
+      - description: API Key
+        in: header
+        name: X-API-Key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/entity.ExtensionUserPublic'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Validate API key
+      tags:
+      - extension
+  /extension/users/generate:
+    post:
+      consumes:
+      - application/json
+      description: Create a new extension user with API key
+      parameters:
+      - description: User data
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/entity.CreateExtensionUserRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/entity.ExtensionUser'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Create extension user
+      tags:
+      - extension
   /users/auth:
     post:
       consumes:
@@ -899,41 +934,6 @@ paths:
       summary: Create or authenticate user with password
       tags:
       - users
-  /users/generate:
-    post:
-      consumes:
-      - application/json
-      description: Create a new extension user with API key
-      parameters:
-      - description: User data
-        in: body
-        name: user
-        required: true
-        schema:
-          $ref: '#/definitions/entity.CreateExtensionUserRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            allOf:
-            - $ref: '#/definitions/wrapper.ResponseWrapper'
-            - properties:
-                data:
-                  $ref: '#/definitions/entity.ExtensionUser'
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/wrapper.ErrorWrapper'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/wrapper.ErrorWrapper'
-      summary: Create extension user
-      tags:
-      - extension
   /users/profile:
     get:
       consumes:
