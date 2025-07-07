@@ -193,6 +193,9 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 		extensionRoutes.POST("/users/generate", routerHandler.userExtensionHandler.CreateExtensionUser)
 		extensionRoutes.GET("/users", routerHandler.userExtensionHandler.GetAllExtensionUsers)
 		extensionRoutes.GET("/users/stats", routerHandler.userExtensionHandler.GetExtensionUserStats)
+		extensionRoutes.DELETE("/users/:id", routerHandler.userExtensionHandler.DeleteExtensionUser)
+		extensionRoutes.PUT("/users/:id", routerHandler.userExtensionHandler.UpdateExtensionUser)
+		extensionRoutes.POST("/users/:id/regenerate-key", routerHandler.userExtensionHandler.RegenerateAPIKey)
 	}
 
 	return r
