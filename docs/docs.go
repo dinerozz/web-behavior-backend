@@ -181,7 +181,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "user-behaviors"
+                    "/api/v1/inayla/behaviors"
                 ],
                 "summary": "Batch create user behavior events",
                 "parameters": [

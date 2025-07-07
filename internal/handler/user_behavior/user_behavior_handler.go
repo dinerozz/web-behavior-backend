@@ -60,7 +60,7 @@ func (h *UserBehaviorHandler) CreateBehavior(c *gin.Context) {
 // BatchCreateBehaviors godoc
 // @Summary      Batch create user behavior events
 // @Description  Create multiple user behavior events in one request
-// @Tags         user-behaviors
+// @Tags         /api/v1/inayla/behaviors
 // @Accept       json
 // @Produce      json
 // @Param        behaviors  body      entity.BatchCreateUserBehaviorRequest  true  "Behaviors data"

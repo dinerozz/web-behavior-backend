@@ -425,7 +425,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Batch create user behavior events
       tags:
-      - user-behaviors
+      - /api/v1/inayla/behaviors
   /behaviors/sessions/{sessionId}:
     get:
       consumes:
