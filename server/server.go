@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"github.com/dinerozz/web-behavior-backend/config"
 	"github.com/dinerozz/web-behavior-backend/docs"
+	userExtensionHandler "github.com/dinerozz/web-behavior-backend/internal/handler/extension_user"
 	userHandler "github.com/dinerozz/web-behavior-backend/internal/handler/user"
 	handler "github.com/dinerozz/web-behavior-backend/internal/handler/user_behavior"
 	userBehaviorHandler "github.com/dinerozz/web-behavior-backend/internal/handler/user_behavior"
 	"github.com/dinerozz/web-behavior-backend/internal/repository"
+	extensionUserService "github.com/dinerozz/web-behavior-backend/internal/service/extension_user"
 	"github.com/dinerozz/web-behavior-backend/internal/service/user"
 	service "github.com/dinerozz/web-behavior-backend/internal/service/user_behavior"
 	"github.com/dinerozz/web-behavior-backend/middleware"
@@ -26,8 +28,10 @@ import (
 )
 
 type RouterHandler struct {
-	userHandler         *userHandler.UserHandler
-	userBehaviorHandler *userBehaviorHandler.UserBehaviorHandler
+	userHandler          *userHandler.UserHandler
+	userBehaviorHandler  *userBehaviorHandler.UserBehaviorHandler
+	userExtensionHandler *userExtensionHandler.ExtensionUserHandler
+	userExtensionService extensionUserService.ExtensionUserService
 }
 
 func RunServer(config *config.Config) {
@@ -53,16 +57,22 @@ func RunServer(config *config.Config) {
 	defer db.Close()
 
 	userRepo := repository.NewUserRepository(db)
-	userSrv := user.NewUserService(userRepo)
-	userHandler := userHandler.NewUserHandler(userSrv)
-
 	userBehaviorRepo := repository.NewUserBehaviorRepository(db)
+	userExtensionRepo := repository.NewExtensionUserRepository(db)
+
+	userSrv := user.NewUserService(userRepo)
 	userBehaviorService := service.NewUserBehaviorService(userBehaviorRepo)
+	userExtensionService := extensionUserService.NewExtensionUserService(userExtensionRepo)
+
+	userHandler := userHandler.NewUserHandler(userSrv)
 	userBehaviorHandler := handler.NewUserBehaviorHandler(userBehaviorService)
+	userExtensionHandler := userExtensionHandler.NewExtensionUserHandler(userExtensionService)
 
 	routerHandler := &RouterHandler{
-		userHandler:         userHandler,
-		userBehaviorHandler: userBehaviorHandler,
+		userHandler:          userHandler,
+		userBehaviorHandler:  userBehaviorHandler,
+		userExtensionHandler: userExtensionHandler,
+		userExtensionService: userExtensionService,
 	}
 
 	r := setupRouter(routerHandler)
@@ -152,18 +162,33 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	// Public routes
-	publicRoutes := r.Group("/api/v1/public")
+	publicRoutes := r.Group("/api/v1/inayla")
 	{
 		publicRoutes.POST("/users/auth", routerHandler.userHandler.CreateOrAuthUserWithPassword)
 		publicRoutes.POST("/behaviors", routerHandler.userBehaviorHandler.CreateBehavior)
-		publicRoutes.GET("/behaviors", routerHandler.userBehaviorHandler.GetBehaviors)
+
+		extensionRoutes := publicRoutes.Group("/extension")
+		extensionRoutes.Use(middleware.APIKeyMiddleware(routerHandler.userExtensionService))
+		{
+			//extensionRoutes.GET("/behaviors", routerHandler.userBehaviorHandler.GetBehaviors)
+			//extensionRoutes.GET("/behaviors/stats", routerHandler.userBehaviorHandler.GetStats)
+			extensionRoutes.GET("/users/auth", routerHandler.userExtensionHandler.ValidateAPIKey)
+			//extensionRoutes.GET("/behaviors/:id", routerHandler.userBehaviorHandler.GetBehaviorByID)
+			//extensionRoutes.GET("/behaviors/sessions/:sessionId", routerHandler.userBehaviorHandler.GetSessionSummary)
+			//extensionRoutes.GET("/behaviors/users/:userId/sessions", routerHandler.userBehaviorHandler.GetUserSessions)
+		}
 	}
 
 	privateRoutes := r.Group("/api/v1/admin")
 	privateRoutes.Use(middleware.AuthenticationMiddleware())
 	{
+		extensionRoutes := privateRoutes.Group("/extension")
+
 		privateRoutes.GET("/users/profile", routerHandler.userHandler.GetUserById)
+		privateRoutes.GET("/behaviors", routerHandler.userBehaviorHandler.GetBehaviors)
+		extensionRoutes.POST("/users/generate", routerHandler.userExtensionHandler.CreateExtensionUser)
+		extensionRoutes.POST("/users", routerHandler.userExtensionHandler.GetAllExtensionUsers)
+
 	}
 
 	return r

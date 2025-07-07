@@ -8,6 +8,15 @@ definitions:
     required:
     - events
     type: object
+  entity.CreateExtensionUserRequest:
+    properties:
+      username:
+        maxLength: 100
+        minLength: 3
+        type: string
+    required:
+    - username
+    type: object
   entity.CreateUserBehaviorRequest:
     properties:
       key:
@@ -33,6 +42,58 @@ definitions:
     - ts
     - type
     - url
+    type: object
+  entity.ExtensionUser:
+    properties:
+      apiKey:
+        type: string
+      createdAt:
+        type: string
+      id:
+        type: string
+      isActive:
+        type: boolean
+      lastUsedAt:
+        type: string
+      updatedAt:
+        type: string
+      username:
+        type: string
+    type: object
+  entity.ExtensionUserPublic:
+    properties:
+      createdAt:
+        type: string
+      id:
+        type: string
+      isActive:
+        type: boolean
+      lastUsedAt:
+        type: string
+      updatedAt:
+        type: string
+      username:
+        type: string
+    type: object
+  entity.ExtensionUserStats:
+    properties:
+      activeUsers:
+        type: integer
+      inactiveUsers:
+        type: integer
+      totalUsers:
+        type: integer
+      usersUsedThisWeek:
+        type: integer
+      usersUsedToday:
+        type: integer
+    type: object
+  entity.RegenerateAPIKeyResponse:
+    properties:
+      apiKey:
+        type: string
+      id:
+        type: string
     type: object
   entity.SessionSummary:
     properties:
@@ -61,6 +122,15 @@ definitions:
       count:
         type: integer
       url:
+        type: string
+    type: object
+  entity.UpdateExtensionUserRequest:
+    properties:
+      isActive:
+        type: boolean
+      username:
+        maxLength: 100
+        minLength: 3
         type: string
     type: object
   entity.UserBehavior:
@@ -491,6 +561,271 @@ paths:
       summary: Get user sessions
       tags:
       - user-behaviors
+  /extension-users/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete an extension user
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  type: string
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Delete extension user
+      tags:
+      - extension
+    get:
+      consumes:
+      - application/json
+      description: Get a specific extension user by their ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/entity.ExtensionUserPublic'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get extension user by ID
+      tags:
+      - extension
+    put:
+      consumes:
+      - application/json
+      description: Update extension user information
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update user data
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/entity.UpdateExtensionUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/entity.ExtensionUserPublic'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Update extension user
+      tags:
+      - extension
+  /extension-users/{id}/regenerate-key:
+    post:
+      consumes:
+      - application/json
+      description: Regenerate API key for extension user
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/entity.RegenerateAPIKeyResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Regenerate API key
+      tags:
+      - extension
+  /extension-users/stats:
+    get:
+      consumes:
+      - application/json
+      description: Get statistics about extension users
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/entity.ExtensionUserStats'
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get extension users statistics
+      tags:
+      - extension
+  /extension/username/{username}:
+    get:
+      consumes:
+      - application/json
+      description: Get a specific extension user by their username
+      parameters:
+      - description: Username
+        in: path
+        name: username
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/entity.ExtensionUserPublic'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get extension user by username
+      tags:
+      - extension
+  /users:
+    get:
+      consumes:
+      - application/json
+      description: Get list of extension users with optional filters
+      parameters:
+      - description: Filter by username
+        in: query
+        name: username
+        type: string
+      - description: Filter by active status
+        in: query
+        name: isActive
+        type: boolean
+      - description: 'Limit (default: 50, max: 200)'
+        in: query
+        name: limit
+        type: integer
+      - description: 'Offset (default: 0)'
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/entity.ExtensionUserPublic'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get all extension users
+      tags:
+      - extension
   /users/auth:
     post:
       consumes:
@@ -526,6 +861,79 @@ paths:
       summary: Create or authenticate user with password
       tags:
       - users
+  /users/auth/validate:
+    post:
+      consumes:
+      - application/json
+      description: Validate extension user API key
+      parameters:
+      - description: API Key
+        in: header
+        name: X-API-Key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/entity.ExtensionUserPublic'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Validate API key
+      tags:
+      - extension
+  /users/generate:
+    post:
+      consumes:
+      - application/json
+      description: Create a new extension user with API key
+      parameters:
+      - description: User data
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/entity.CreateExtensionUserRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/entity.ExtensionUser'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Create extension user
+      tags:
+      - extension
   /users/profile:
     get:
       consumes:
