@@ -77,7 +77,7 @@ func (h *ExtensionUserHandler) CreateExtensionUser(c *gin.Context) {
 // @Failure      400  {object}  wrapper.ErrorWrapper
 // @Failure      404  {object}  wrapper.ErrorWrapper
 // @Failure      500  {object}  wrapper.ErrorWrapper
-// @Router       /extension-users/{id} [get]
+// @Router       /extension/users/{id} [get]
 func (h *ExtensionUserHandler) GetExtensionUserByID(c *gin.Context) {
 	idStr := c.Param("id")
 	userID, err := uuid.FromString(idStr)
@@ -206,7 +206,7 @@ func (h *ExtensionUserHandler) GetAllExtensionUsers(c *gin.Context) {
 // @Failure      400   {object}  wrapper.ErrorWrapper
 // @Failure      404   {object}  wrapper.ErrorWrapper
 // @Failure      500   {object}  wrapper.ErrorWrapper
-// @Router       /extension-users/{id} [put]
+// @Router       /extension/users/{id} [put]
 func (h *ExtensionUserHandler) UpdateExtensionUser(c *gin.Context) {
 	idStr := c.Param("id")
 	userID, err := uuid.FromString(idStr)
@@ -267,7 +267,7 @@ func (h *ExtensionUserHandler) UpdateExtensionUser(c *gin.Context) {
 // @Failure      400  {object}  wrapper.ErrorWrapper
 // @Failure      404  {object}  wrapper.ErrorWrapper
 // @Failure      500  {object}  wrapper.ErrorWrapper
-// @Router       /extension-users/{id}/regenerate-key [post]
+// @Router       /extension/users/{id}/regenerate-key [post]
 func (h *ExtensionUserHandler) RegenerateAPIKey(c *gin.Context) {
 	idStr := c.Param("id")
 	userID, err := uuid.FromString(idStr)
@@ -319,7 +319,7 @@ func (h *ExtensionUserHandler) RegenerateAPIKey(c *gin.Context) {
 // @Failure      400  {object}  wrapper.ErrorWrapper
 // @Failure      404  {object}  wrapper.ErrorWrapper
 // @Failure      500  {object}  wrapper.ErrorWrapper
-// @Router       /extension-users/{id} [delete]
+// @Router       /extension/users/{id} [delete]
 func (h *ExtensionUserHandler) DeleteExtensionUser(c *gin.Context) {
 	idStr := c.Param("id")
 	userID, err := uuid.FromString(idStr)
@@ -415,7 +415,7 @@ func (h *ExtensionUserHandler) ValidateAPIKey(c *gin.Context) {
 // @Produce      json
 // @Success      200  {object}  wrapper.ResponseWrapper{data=entity.ExtensionUserStats}
 // @Failure      500  {object}  wrapper.ErrorWrapper
-// @Router       /extension-users/stats [get]
+// @Router       /extension/users/stats [get]
 func (h *ExtensionUserHandler) GetExtensionUserStats(c *gin.Context) {
 	stats, err := h.service.GetStats(c.Request.Context())
 	if err != nil {

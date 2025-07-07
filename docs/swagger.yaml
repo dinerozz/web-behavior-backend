@@ -561,7 +561,92 @@ paths:
       summary: Get user sessions
       tags:
       - user-behaviors
-  /extension-users/{id}:
+  /extension/username/{username}:
+    get:
+      consumes:
+      - application/json
+      description: Get a specific extension user by their username
+      parameters:
+      - description: Username
+        in: path
+        name: username
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/entity.ExtensionUserPublic'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get extension user by username
+      tags:
+      - extension
+  /extension/users:
+    get:
+      consumes:
+      - application/json
+      description: Get list of extension users with optional filters
+      parameters:
+      - description: Filter by username
+        in: query
+        name: username
+        type: string
+      - description: Filter by active status
+        in: query
+        name: isActive
+        type: boolean
+      - description: 'Limit (default: 50, max: 200)'
+        in: query
+        name: limit
+        type: integer
+      - description: 'Offset (default: 0)'
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/entity.ExtensionUserPublic'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get all extension users
+      tags:
+      - extension
+  /extension/users/{id}:
     delete:
       consumes:
       - application/json
@@ -679,7 +764,7 @@ paths:
       summary: Update extension user
       tags:
       - extension
-  /extension-users/{id}/regenerate-key:
+  /extension/users/{id}/regenerate-key:
     post:
       consumes:
       - application/json
@@ -715,115 +800,6 @@ paths:
           schema:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Regenerate API key
-      tags:
-      - extension
-  /extension-users/stats:
-    get:
-      consumes:
-      - application/json
-      description: Get statistics about extension users
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/wrapper.ResponseWrapper'
-            - properties:
-                data:
-                  $ref: '#/definitions/entity.ExtensionUserStats'
-              type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/wrapper.ErrorWrapper'
-      summary: Get extension users statistics
-      tags:
-      - extension
-  /extension/username/{username}:
-    get:
-      consumes:
-      - application/json
-      description: Get a specific extension user by their username
-      parameters:
-      - description: Username
-        in: path
-        name: username
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/wrapper.ResponseWrapper'
-            - properties:
-                data:
-                  $ref: '#/definitions/entity.ExtensionUserPublic'
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/wrapper.ErrorWrapper'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/wrapper.ErrorWrapper'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/wrapper.ErrorWrapper'
-      summary: Get extension user by username
-      tags:
-      - extension
-  /extension/users:
-    get:
-      consumes:
-      - application/json
-      description: Get list of extension users with optional filters
-      parameters:
-      - description: Filter by username
-        in: query
-        name: username
-        type: string
-      - description: Filter by active status
-        in: query
-        name: isActive
-        type: boolean
-      - description: 'Limit (default: 50, max: 200)'
-        in: query
-        name: limit
-        type: integer
-      - description: 'Offset (default: 0)'
-        in: query
-        name: offset
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/wrapper.ResponseWrapper'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/entity.ExtensionUserPublic'
-                  type: array
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/wrapper.ErrorWrapper'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/wrapper.ErrorWrapper'
-      summary: Get all extension users
       tags:
       - extension
   /extension/users/auth:
@@ -897,6 +873,30 @@ paths:
           schema:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Create extension user
+      tags:
+      - extension
+  /extension/users/stats:
+    get:
+      consumes:
+      - application/json
+      description: Get statistics about extension users
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/entity.ExtensionUserStats'
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get extension users statistics
       tags:
       - extension
   /users/auth:
