@@ -191,7 +191,8 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 		privateRoutes.GET("/users/profile", routerHandler.userHandler.GetUserById)
 		privateRoutes.GET("/behaviors", routerHandler.userBehaviorHandler.GetBehaviors)
 		extensionRoutes.POST("/users/generate", routerHandler.userExtensionHandler.CreateExtensionUser)
-		extensionRoutes.GET("/users/stats", routerHandler.userExtensionHandler.GetAllExtensionUsers)
+		extensionRoutes.GET("/users", routerHandler.userExtensionHandler.GetAllExtensionUsers)
+		extensionRoutes.GET("/users/stats", routerHandler.userExtensionHandler.GetExtensionUserStats)
 	}
 
 	return r

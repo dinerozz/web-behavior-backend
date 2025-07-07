@@ -26,7 +26,7 @@ func NewExtensionUserHandler(service service.ExtensionUserService) *ExtensionUse
 // CreateExtensionUser godoc
 // @Summary      Create extension user
 // @Description  Create a new extension user with API key
-// @Tags         extension
+// @Tags         extension (admin)
 // @Accept       json
 // @Produce      json
 // @Param        user  body      entity.CreateExtensionUserRequest  true  "User data"
@@ -69,7 +69,7 @@ func (h *ExtensionUserHandler) CreateExtensionUser(c *gin.Context) {
 // GetExtensionUserByID godoc
 // @Summary      Get extension user by ID
 // @Description  Get a specific extension user by their ID
-// @Tags         extension
+// @Tags         extension (admin)
 // @Accept       json
 // @Produce      json
 // @Param        id   path      string  true  "User ID"
@@ -114,7 +114,7 @@ func (h *ExtensionUserHandler) GetExtensionUserByID(c *gin.Context) {
 // GetExtensionUserByUsername godoc
 // @Summary      Get extension user by username
 // @Description  Get a specific extension user by their username
-// @Tags         extension
+// @Tags         extension (admin)
 // @Accept       json
 // @Produce      json
 // @Param        username   path      string  true  "Username"
@@ -158,7 +158,7 @@ func (h *ExtensionUserHandler) GetExtensionUserByUsername(c *gin.Context) {
 // GetAllExtensionUsers godoc
 // @Summary      Get all extension users
 // @Description  Get list of extension users with optional filters
-// @Tags         extension
+// @Tags         extension (admin)
 // @Accept       json
 // @Produce      json
 // @Param        username   query     string  false  "Filter by username"
@@ -197,7 +197,7 @@ func (h *ExtensionUserHandler) GetAllExtensionUsers(c *gin.Context) {
 // UpdateExtensionUser godoc
 // @Summary      Update extension user
 // @Description  Update extension user information
-// @Tags         extension
+// @Tags         extension (admin)
 // @Accept       json
 // @Produce      json
 // @Param        id    path      string                              true  "User ID"
@@ -259,7 +259,7 @@ func (h *ExtensionUserHandler) UpdateExtensionUser(c *gin.Context) {
 // RegenerateAPIKey godoc
 // @Summary      Regenerate API key
 // @Description  Regenerate API key for extension user
-// @Tags         extension
+// @Tags         extension (admin)
 // @Accept       json
 // @Produce      json
 // @Param        id   path      string  true  "User ID"
@@ -311,7 +311,7 @@ func (h *ExtensionUserHandler) RegenerateAPIKey(c *gin.Context) {
 // DeleteExtensionUser godoc
 // @Summary      Delete extension user
 // @Description  Delete an extension user
-// @Tags         extension
+// @Tags         extension (admin)
 // @Accept       json
 // @Produce      json
 // @Param        id   path      string  true  "User ID"
@@ -356,7 +356,7 @@ func (h *ExtensionUserHandler) DeleteExtensionUser(c *gin.Context) {
 // ValidateAPIKey godoc
 // @Summary      Validate API key
 // @Description  Validate extension user API key
-// @Tags         extension
+// @Tags         extension (user)
 // @Accept       json
 // @Produce      json
 // @Param        X-API-Key  header    string  true  "API Key"
@@ -391,7 +391,6 @@ func (h *ExtensionUserHandler) ValidateAPIKey(c *gin.Context) {
 		return
 	}
 
-	// Преобразуем в публичную версию (без API ключа)
 	publicUser := &entity.ExtensionUserPublic{
 		ID:         user.ID,
 		Username:   user.Username,
@@ -410,7 +409,7 @@ func (h *ExtensionUserHandler) ValidateAPIKey(c *gin.Context) {
 // GetExtensionUserStats godoc
 // @Summary      Get extension users statistics
 // @Description  Get statistics about extension users
-// @Tags         extension
+// @Tags         extension (admin)
 // @Accept       json
 // @Produce      json
 // @Success      200  {object}  wrapper.ResponseWrapper{data=entity.ExtensionUserStats}

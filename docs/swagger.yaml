@@ -598,7 +598,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Get extension user by username
       tags:
-      - extension
+      - extension (admin)
   /extension/users:
     get:
       consumes:
@@ -645,7 +645,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Get all extension users
       tags:
-      - extension
+      - extension (admin)
   /extension/users/{id}:
     delete:
       consumes:
@@ -683,7 +683,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Delete extension user
       tags:
-      - extension
+      - extension (admin)
     get:
       consumes:
       - application/json
@@ -720,7 +720,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Get extension user by ID
       tags:
-      - extension
+      - extension (admin)
     put:
       consumes:
       - application/json
@@ -763,7 +763,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Update extension user
       tags:
-      - extension
+      - extension (admin)
   /extension/users/{id}/regenerate-key:
     post:
       consumes:
@@ -801,7 +801,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Regenerate API key
       tags:
-      - extension
+      - extension (admin)
   /extension/users/auth:
     post:
       consumes:
@@ -839,7 +839,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Validate API key
       tags:
-      - extension
+      - extension (user)
   /extension/users/generate:
     post:
       consumes:
@@ -874,7 +874,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Create extension user
       tags:
-      - extension
+      - extension (admin)
   /extension/users/stats:
     get:
       consumes:
@@ -898,7 +898,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Get extension users statistics
       tags:
-      - extension
+      - extension (admin)
   /users/auth:
     post:
       consumes:

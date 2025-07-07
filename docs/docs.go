@@ -579,7 +579,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "extension"
+                    "extension (admin)"
                 ],
                 "summary": "Get extension user by username",
                 "parameters": [
@@ -641,7 +641,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "extension"
+                    "extension (admin)"
                 ],
                 "summary": "Get all extension users",
                 "parameters": [
@@ -717,7 +717,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "extension"
+                    "extension (user)"
                 ],
                 "summary": "Validate API key",
                 "parameters": [
@@ -779,7 +779,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "extension"
+                    "extension (admin)"
                 ],
                 "summary": "Create extension user",
                 "parameters": [
@@ -837,7 +837,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "extension"
+                    "extension (admin)"
                 ],
                 "summary": "Get extension users statistics",
                 "responses": {
@@ -878,7 +878,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "extension"
+                    "extension (admin)"
                 ],
                 "summary": "Get extension user by ID",
                 "parameters": [
@@ -938,7 +938,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "extension"
+                    "extension (admin)"
                 ],
                 "summary": "Update extension user",
                 "parameters": [
@@ -1007,7 +1007,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "extension"
+                    "extension (admin)"
                 ],
                 "summary": "Delete extension user",
                 "parameters": [
@@ -1069,7 +1069,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "extension"
+                    "extension (admin)"
                 ],
                 "summary": "Regenerate API key",
                 "parameters": [
