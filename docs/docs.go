@@ -925,7 +925,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/extension/users/auth/validate": {
+        "/extension/users/auth": {
             "post": {
                 "description": "Validate extension user API key",
                 "consumes": [

@@ -779,7 +779,7 @@ paths:
       summary: Get extension user by username
       tags:
       - extension
-  /extension/users/auth/validate:
+  /extension/users/auth:
     post:
       consumes:
       - application/json
