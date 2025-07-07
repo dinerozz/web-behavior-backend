@@ -164,7 +164,6 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 
 	publicRoutes := r.Group("/api/v1/inayla")
 	{
-		publicRoutes.POST("/users/auth", routerHandler.userHandler.CreateOrAuthUserWithPassword)
 		publicRoutes.POST("/behaviors", routerHandler.userBehaviorHandler.CreateBehavior)
 
 		extensionRoutes := publicRoutes.Group("/extension")
@@ -177,6 +176,11 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 			//extensionRoutes.GET("/behaviors/sessions/:sessionId", routerHandler.userBehaviorHandler.GetSessionSummary)
 			//extensionRoutes.GET("/behaviors/users/:userId/sessions", routerHandler.userBehaviorHandler.GetUserSessions)
 		}
+	}
+
+	publicAdminRoutes := r.Group("/api/v1/admin")
+	{
+		publicAdminRoutes.POST("/users/auth", routerHandler.userHandler.CreateOrAuthUserWithPassword)
 	}
 
 	privateRoutes := r.Group("/api/v1/admin")
