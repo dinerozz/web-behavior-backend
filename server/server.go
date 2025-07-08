@@ -170,12 +170,7 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 		extensionRoutes := publicRoutes.Group("/extension")
 		extensionRoutes.Use(middleware.APIKeyMiddleware(routerHandler.userExtensionService))
 		{
-			//extensionRoutes.GET("/behaviors", routerHandler.userBehaviorHandler.GetBehaviors)
-			//extensionRoutes.GET("/behaviors/stats", routerHandler.userBehaviorHandler.GetStats)
 			extensionRoutes.GET("/users/auth", routerHandler.userExtensionHandler.ValidateAPIKey)
-			//extensionRoutes.GET("/behaviors/:id", routerHandler.userBehaviorHandler.GetBehaviorByID)
-			//extensionRoutes.GET("/behaviors/sessions/:sessionId", routerHandler.userBehaviorHandler.GetSessionSummary)
-			//extensionRoutes.GET("/behaviors/users/:userId/sessions", routerHandler.userBehaviorHandler.GetUserSessions)
 		}
 	}
 
@@ -199,6 +194,9 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 		extensionRoutes.DELETE("/users/:id", routerHandler.userExtensionHandler.DeleteExtensionUser)
 		extensionRoutes.PUT("/users/:id", routerHandler.userExtensionHandler.UpdateExtensionUser)
 		extensionRoutes.POST("/users/:id/regenerate-key", routerHandler.userExtensionHandler.RegenerateAPIKey)
+		extensionRoutes.GET("/behaviors/sessions/:sessionId", routerHandler.userBehaviorHandler.GetSessionSummary)
+		extensionRoutes.GET("/behaviors/:id", routerHandler.userBehaviorHandler.GetBehaviorByID)
+		extensionRoutes.GET("/behaviors/users/:userId/sessions", routerHandler.userBehaviorHandler.GetUserSessions)
 	}
 
 	return r
