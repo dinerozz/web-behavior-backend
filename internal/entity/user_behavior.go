@@ -67,7 +67,7 @@ type SessionSummary struct {
 	UserName    *string   `json:"userName"`
 	StartTime   time.Time `json:"startTime"`
 	EndTime     time.Time `json:"endTime"`
-	Duration    int64     `json:"duration"` // в секундах
+	Duration    float64   `json:"duration"` // в секундах
 	EventsCount int64     `json:"eventsCount"`
 	URLs        []string  `json:"urls"`
 }
