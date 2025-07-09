@@ -250,7 +250,6 @@ func (h *UserBehaviorHandler) GetBehaviors(c *gin.Context) {
 		return
 	}
 
-	// Возвращаем разные форматы ответа в зависимости от используемой пагинации
 	if paginationInfo != nil {
 		c.JSON(http.StatusOK, entity.PaginatedResponse{
 			Data:    behaviors,

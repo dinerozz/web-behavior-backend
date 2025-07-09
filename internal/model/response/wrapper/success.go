@@ -1,6 +1,8 @@
 package wrapper
 
-import "github.com/dinerozz/web-behavior-backend/internal/model/response"
+import (
+	"github.com/dinerozz/web-behavior-backend/internal/entity"
+)
 
 type ResponseWrapper struct {
 	Data    interface{} `json:"data"`
@@ -8,9 +10,9 @@ type ResponseWrapper struct {
 }
 
 type PaginatedResponseWrapper struct {
-	Data    interface{}             `json:"data"`
-	Meta    response.PaginationMeta `json:"meta"`
-	Success bool                    `json:"success"`
+	Data    interface{}           `json:"data"`
+	Meta    entity.PaginationInfo `json:"meta"`
+	Success bool                  `json:"success"`
 }
 
 type SuccessWrapper struct {

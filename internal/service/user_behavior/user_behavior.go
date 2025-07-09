@@ -42,6 +42,7 @@ var validEventTypes = map[string]bool{
 	"visibility_hidden":  true,
 	"visibility_visible": true,
 	"idle":               true,
+	"scrollend":          true,
 }
 
 func (s *userBehaviorService) CreateBehavior(ctx context.Context, req entity.CreateUserBehaviorRequest) (*entity.UserBehavior, error) {
@@ -235,9 +236,7 @@ func (s *userBehaviorService) ValidateCoordinates(x, y *int, eventType string) e
 		if x == nil || y == nil {
 			return fmt.Errorf("coordinates (x, y) are required for click events")
 		}
-		if *x < 0 || *y < 0 {
-			return fmt.Errorf("coordinates must be non-negative")
-		}
+
 		if *x > 10000 || *y > 10000 {
 			return fmt.Errorf("coordinates seem too large")
 		}
