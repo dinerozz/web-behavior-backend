@@ -12,7 +12,7 @@ import (
 
 type ExtensionUserService interface {
 	CreateUser(ctx context.Context, req entity.CreateExtensionUserRequest) (*entity.ExtensionUser, error)
-	GetUserByID(ctx context.Context, id uuid.UUID) (*entity.ExtensionUserPublic, error)
+	GetUserByID(ctx context.Context, id uuid.UUID) (*entity.ExtensionUser, error)
 	GetUserByAPIKey(ctx context.Context, apiKey string) (*entity.ExtensionUser, error)
 	GetUserByUsername(ctx context.Context, username string) (*entity.ExtensionUserPublic, error)
 	GetAllUsers(ctx context.Context, filter entity.ExtensionUserFilter) ([]entity.ExtensionUserPublic, error)
@@ -54,7 +54,7 @@ func (s *extensionUserService) CreateUser(ctx context.Context, req entity.Create
 	return user, nil
 }
 
-func (s *extensionUserService) GetUserByID(ctx context.Context, id uuid.UUID) (*entity.ExtensionUserPublic, error) {
+func (s *extensionUserService) GetUserByID(ctx context.Context, id uuid.UUID) (*entity.ExtensionUser, error) {
 	user, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user by ID: %w", err)
@@ -63,7 +63,7 @@ func (s *extensionUserService) GetUserByID(ctx context.Context, id uuid.UUID) (*
 		return nil, fmt.Errorf("user not found")
 	}
 
-	return s.toPublicUser(user), nil
+	return user, nil
 }
 
 func (s *extensionUserService) GetUserByAPIKey(ctx context.Context, apiKey string) (*entity.ExtensionUser, error) {
