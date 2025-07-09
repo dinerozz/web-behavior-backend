@@ -43,6 +43,7 @@ var validEventTypes = map[string]bool{
 	"visibility_visible": true,
 	"idle":               true,
 	"scrollend":          true,
+	"pagehide":           true,
 }
 
 func (s *userBehaviorService) CreateBehavior(ctx context.Context, req entity.CreateUserBehaviorRequest) (*entity.UserBehavior, error) {
