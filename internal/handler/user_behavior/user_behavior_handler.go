@@ -143,9 +143,11 @@ func (h *UserBehaviorHandler) GetBehaviorByID(c *gin.Context) {
 // @Param        url        query     string  false  "URL (partial match)"
 // @Param        startTime  query     string  false  "Start time (RFC3339 format)"
 // @Param        endTime    query     string  false  "End time (RFC3339 format)"
-// @Param        limit      query     int     false  "Limit (default: 100, max: 1000)"
-// @Param        offset     query     int     false  "Offset (default: 0)"
-// @Success      200        {object}  wrapper.ResponseWrapper{data=[]entity.UserBehavior}
+// @Param        page       query     int     false  "Page number (starts from 1)"
+// @Param        per_page   query     int     false  "Items per page (default: 20, max: 1000)"
+// @Param        limit      query     int     false  "Limit (deprecated, use per_page)"
+// @Param        offset     query     int     false  "Offset (deprecated, use page)"
+// @Success      200        {object}  wrapper.PaginatedResponse{data=[]entity.UserBehavior}
 // @Failure      400        {object}  wrapper.ErrorWrapper
 // @Failure      500        {object}  wrapper.ErrorWrapper
 // @Router       /behaviors [get]
@@ -191,6 +193,33 @@ func (h *UserBehaviorHandler) GetBehaviors(c *gin.Context) {
 		filter.EndTime = &endTime
 	}
 
+	// Новые параметры пагинации
+	if pageStr := c.Query("page"); pageStr != "" {
+		page, err := strconv.Atoi(pageStr)
+		if err != nil || page < 1 {
+			c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
+				Message: "Invalid page value, must be positive integer",
+			})
+			return
+		}
+		filter.Page = page
+	}
+
+	if perPageStr := c.Query("per_page"); perPageStr != "" {
+		perPage, err := strconv.Atoi(perPageStr)
+		if err != nil || perPage < 1 {
+			c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
+				Message: "Invalid per_page value, must be positive integer",
+			})
+			return
+		}
+		filter.PerPage = perPage
+	} else if filter.Page > 0 {
+		// Значение по умолчанию для per_page если указан page
+		filter.PerPage = 20
+	}
+
+	// Старые параметры (для совместимости)
 	if limitStr := c.Query("limit"); limitStr != "" {
 		limit, err := strconv.Atoi(limitStr)
 		if err != nil {
@@ -213,7 +242,7 @@ func (h *UserBehaviorHandler) GetBehaviors(c *gin.Context) {
 		filter.Offset = offset
 	}
 
-	behaviors, err := h.service.GetBehaviors(c.Request.Context(), filter)
+	behaviors, paginationInfo, err := h.service.GetBehaviors(c.Request.Context(), filter)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{
 			Message: err.Error(),
@@ -221,10 +250,24 @@ func (h *UserBehaviorHandler) GetBehaviors(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, wrapper.ResponseWrapper{
-		Data:    behaviors,
-		Success: true,
-	})
+	// Возвращаем разные форматы ответа в зависимости от используемой пагинации
+	if paginationInfo != nil {
+		c.JSON(http.StatusOK, entity.PaginatedResponse{
+			Data:    behaviors,
+			Success: true,
+			Pagination: entity.PaginationInfo{
+				Page:       paginationInfo.Page,
+				PerPage:    paginationInfo.PerPage,
+				Total:      paginationInfo.Total,
+				TotalPages: paginationInfo.TotalPages,
+			},
+		})
+	} else {
+		c.JSON(http.StatusOK, wrapper.ResponseWrapper{
+			Data:    behaviors,
+			Success: true,
+		})
+	}
 }
 
 // GetStats godoc

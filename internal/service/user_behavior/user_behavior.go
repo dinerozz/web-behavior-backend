@@ -13,7 +13,7 @@ type UserBehaviorService interface {
 	CreateBehavior(ctx context.Context, req entity.CreateUserBehaviorRequest) (*entity.UserBehavior, error)
 	BatchCreateBehaviors(ctx context.Context, req entity.BatchCreateUserBehaviorRequest) error
 	GetBehaviorByID(ctx context.Context, id uuid.UUID) (*entity.UserBehavior, error)
-	GetBehaviors(ctx context.Context, filter entity.UserBehaviorFilter) ([]entity.UserBehavior, error)
+	GetBehaviors(ctx context.Context, filter entity.UserBehaviorFilter) ([]entity.UserBehavior, *entity.PaginationInfo, error)
 	GetStats(ctx context.Context, filter entity.UserBehaviorFilter) (*entity.UserBehaviorStats, error)
 	GetSessionSummary(ctx context.Context, sessionID string) (*entity.SessionSummary, error)
 	GetUserSessions(ctx context.Context, userID string, limit, offset int) ([]entity.SessionSummary, error)
@@ -129,21 +129,46 @@ func (s *userBehaviorService) GetBehaviorByID(ctx context.Context, id uuid.UUID)
 	return behavior, nil
 }
 
-func (s *userBehaviorService) GetBehaviors(ctx context.Context, filter entity.UserBehaviorFilter) ([]entity.UserBehavior, error) {
-	// Валидация и установка лимитов по умолчанию
-	if filter.Limit <= 0 {
-		filter.Limit = 100
-	}
-	if filter.Limit > 1000 {
-		filter.Limit = 1000
+func (s *userBehaviorService) GetBehaviors(ctx context.Context, filter entity.UserBehaviorFilter) ([]entity.UserBehavior, *entity.PaginationInfo, error) {
+	if filter.Page > 0 && filter.PerPage > 0 {
+		if filter.PerPage > 1000 {
+			filter.PerPage = 1000
+		}
+		if filter.Page < 1 {
+			filter.Page = 1
+		}
+	} else {
+		// Старая логика для совместимости
+		if filter.Limit <= 0 {
+			filter.Limit = 100
+		}
+		if filter.Limit > 1000 {
+			filter.Limit = 1000
+		}
 	}
 
 	behaviors, err := s.repo.GetByFilter(ctx, filter)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get behaviors: %w", err)
+		return nil, nil, fmt.Errorf("failed to get behaviors: %w", err)
 	}
 
-	return behaviors, nil
+	var paginationInfo *entity.PaginationInfo
+	if filter.Page > 0 && filter.PerPage > 0 {
+		total, err := s.repo.CountByFilter(ctx, filter)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to count behaviors: %w", err)
+		}
+
+		totalPages := (total + filter.PerPage - 1) / filter.PerPage
+		paginationInfo = &entity.PaginationInfo{
+			Page:       filter.Page,
+			PerPage:    filter.PerPage,
+			Total:      total,
+			TotalPages: totalPages,
+		}
+	}
+
+	return behaviors, paginationInfo, nil
 }
 
 func (s *userBehaviorService) GetStats(ctx context.Context, filter entity.UserBehaviorFilter) (*entity.UserBehaviorStats, error) {

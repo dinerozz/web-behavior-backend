@@ -26,6 +26,7 @@ type UserBehaviorRepository interface {
 	GetSessionSummary(ctx context.Context, sessionID string) (*entity.SessionSummary, error)
 	GetUserSessions(ctx context.Context, userID string, limit, offset int) ([]entity.SessionSummary, error)
 	Delete(ctx context.Context, id uuid.UUID) error
+	CountByFilter(ctx context.Context, filter entity.UserBehaviorFilter) (int, error)
 }
 
 type userBehaviorRepository struct {
@@ -138,20 +139,71 @@ func (r *userBehaviorRepository) GetByFilter(ctx context.Context, filter entity.
 
 	query += " ORDER BY timestamp DESC"
 
-	if filter.Limit > 0 {
-		query += fmt.Sprintf(" LIMIT $%d", argIndex)
-		args = append(args, filter.Limit)
-		argIndex++
-	}
-
-	if filter.Offset > 0 {
-		query += fmt.Sprintf(" OFFSET $%d", argIndex)
-		args = append(args, filter.Offset)
-		argIndex++
+	if filter.Page > 0 && filter.PerPage > 0 {
+		offset := (filter.Page - 1) * filter.PerPage
+		query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
+		args = append(args, filter.PerPage, offset)
+	} else {
+		// Старая логика для совместимости
+		if filter.Limit > 0 {
+			query += fmt.Sprintf(" LIMIT $%d", argIndex)
+			args = append(args, filter.Limit)
+			argIndex++
+		}
+		if filter.Offset > 0 {
+			query += fmt.Sprintf(" OFFSET $%d", argIndex)
+			args = append(args, filter.Offset)
+		}
 	}
 
 	err := r.db.SelectContext(ctx, &behaviors, query, args...)
 	return behaviors, err
+}
+
+func (r *userBehaviorRepository) CountByFilter(ctx context.Context, filter entity.UserBehaviorFilter) (int, error) {
+	query := "SELECT COUNT(*) FROM user_behaviors WHERE 1=1"
+	args := []interface{}{}
+	argIndex := 1
+
+	if filter.UserID != nil {
+		query += fmt.Sprintf(" AND user_id = $%d", argIndex)
+		args = append(args, *filter.UserID)
+		argIndex++
+	}
+
+	if filter.SessionID != nil {
+		query += fmt.Sprintf(" AND session_id = $%d", argIndex)
+		args = append(args, *filter.SessionID)
+		argIndex++
+	}
+
+	if filter.EventType != nil {
+		query += fmt.Sprintf(" AND event_type = $%d", argIndex)
+		args = append(args, *filter.EventType)
+		argIndex++
+	}
+
+	if filter.URL != nil {
+		query += fmt.Sprintf(" AND url ILIKE $%d", argIndex)
+		args = append(args, "%"+*filter.URL+"%")
+		argIndex++
+	}
+
+	if filter.StartTime != nil {
+		query += fmt.Sprintf(" AND timestamp >= $%d", argIndex)
+		args = append(args, *filter.StartTime)
+		argIndex++
+	}
+
+	if filter.EndTime != nil {
+		query += fmt.Sprintf(" AND timestamp <= $%d", argIndex)
+		args = append(args, *filter.EndTime)
+		argIndex++
+	}
+
+	var count int
+	err := r.db.GetContext(ctx, &count, query, args...)
+	return count, err
 }
 
 func (r *userBehaviorRepository) GetStats(ctx context.Context, filter entity.UserBehaviorFilter) (*entity.UserBehaviorStats, error) {

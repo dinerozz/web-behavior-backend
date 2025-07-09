@@ -38,16 +38,21 @@ type BatchCreateUserBehaviorRequest struct {
 
 // UserBehaviorFilter фильтры для поиска событий
 type UserBehaviorFilter struct {
-	UserID    *string    `form:"userId"`
-	SessionID *string    `form:"sessionId"`
-	EventType *string    `form:"eventType"`
-	URL       *string    `form:"url"`
-	StartTime *time.Time `form:"startTime"`
-	EndTime   *time.Time `form:"endTime"`
-	Limit     int        `form:"limit"`
-	Offset    int        `form:"offset"`
-}
+	UserID    *string    `json:"user_id"`
+	SessionID *string    `json:"session_id"`
+	EventType *string    `json:"event_type"`
+	URL       *string    `json:"url"`
+	StartTime *time.Time `json:"start_time"`
+	EndTime   *time.Time `json:"end_time"`
 
+	// Старые параметры
+	Limit  int `json:"limit"`
+	Offset int `json:"offset"`
+
+	// Новые параметры пагинации
+	Page    int `json:"page"`
+	PerPage int `json:"per_page"`
+}
 type UserBehaviorStats struct {
 	TotalEvents    int64            `json:"totalEvents"`
 	UniqueUsers    int64            `json:"uniqueUsers"`
