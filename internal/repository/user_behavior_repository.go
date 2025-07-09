@@ -8,6 +8,8 @@ import (
 	"fmt"
 	uuid2 "github.com/gofrs/uuid"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
+	"strconv"
 	"strings"
 	"time"
 
@@ -251,20 +253,20 @@ func (r *userBehaviorRepository) GetSessionSummary(ctx context.Context, sessionI
 
 func (r *userBehaviorRepository) GetUserSessions(ctx context.Context, userID string, limit, offset int) ([]entity.SessionSummary, error) {
 	query := `
-		SELECT 
-			session_id,
-			user_id,
-			user_name,
-			MIN(timestamp) as start_time,
-			MAX(timestamp) as end_time,
-			EXTRACT(EPOCH FROM (MAX(timestamp) - MIN(timestamp))) as duration,
-			COUNT(*) as events_count,
-			array_agg(DISTINCT url) as urls
-		FROM user_behaviors 
-		WHERE user_id = $1
-		GROUP BY session_id, user_id, user_name
-		ORDER BY start_time DESC
-		LIMIT $2 OFFSET $3`
+       SELECT 
+          session_id,
+          user_id,
+          user_name,
+          MIN(timestamp) as start_time,
+          MAX(timestamp) as end_time,
+          EXTRACT(EPOCH FROM (MAX(timestamp) - MIN(timestamp))) as duration,
+          COUNT(*) as events_count,
+          array_agg(DISTINCT url) as urls
+       FROM user_behaviors 
+       WHERE user_id = $1
+       GROUP BY session_id, user_id, user_name
+       ORDER BY start_time DESC
+       LIMIT $2 OFFSET $3`
 
 	rows, err := r.db.QueryContext(ctx, query, userID, limit, offset)
 	if err != nil {
@@ -275,7 +277,8 @@ func (r *userBehaviorRepository) GetUserSessions(ctx context.Context, userID str
 	var sessions []entity.SessionSummary
 	for rows.Next() {
 		var session entity.SessionSummary
-		var urls []string
+		var urls pq.StringArray
+		var durationStr string
 
 		err := rows.Scan(
 			&session.SessionID,
@@ -283,21 +286,26 @@ func (r *userBehaviorRepository) GetUserSessions(ctx context.Context, userID str
 			&session.UserName,
 			&session.StartTime,
 			&session.EndTime,
-			&session.Duration,
+			&durationStr,
 			&session.EventsCount,
-			(*StringSlice)(&urls),
+			&urls,
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		session.URLs = urls
+		duration, err := strconv.ParseFloat(durationStr, 64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse duration: %v", err)
+		}
+		session.Duration = duration
+
+		session.URLs = []string(urls)
 		sessions = append(sessions, session)
 	}
 
 	return sessions, nil
 }
-
 func (r *userBehaviorRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	query := "DELETE FROM user_behaviors WHERE id = $1"
 	result, err := r.db.ExecContext(ctx, query, id)
