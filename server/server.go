@@ -186,6 +186,9 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 		privateRoutes.GET("/users/profile", routerHandler.userHandler.GetUserById)
 		privateRoutes.GET("/behaviors", routerHandler.userBehaviorHandler.GetBehaviors)
 		privateRoutes.GET("/behaviors/stats", routerHandler.userBehaviorHandler.GetStats)
+		privateRoutes.GET("/behaviors/sessions/:sessionId", routerHandler.userBehaviorHandler.GetSessionSummary)
+		privateRoutes.GET("/behaviors/:id", routerHandler.userBehaviorHandler.GetBehaviorByID)
+		privateRoutes.GET("/behaviors/users/:userId/sessions", routerHandler.userBehaviorHandler.GetUserSessions)
 
 		extensionRoutes := privateRoutes.Group("/extension")
 		extensionRoutes.POST("/users/generate", routerHandler.userExtensionHandler.CreateExtensionUser)
@@ -194,9 +197,6 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 		extensionRoutes.DELETE("/users/:id", routerHandler.userExtensionHandler.DeleteExtensionUser)
 		extensionRoutes.PUT("/users/:id", routerHandler.userExtensionHandler.UpdateExtensionUser)
 		extensionRoutes.POST("/users/:id/regenerate-key", routerHandler.userExtensionHandler.RegenerateAPIKey)
-		extensionRoutes.GET("/behaviors/sessions/:sessionId", routerHandler.userBehaviorHandler.GetSessionSummary)
-		extensionRoutes.GET("/behaviors/:id", routerHandler.userBehaviorHandler.GetBehaviorByID)
-		extensionRoutes.GET("/behaviors/users/:userId/sessions", routerHandler.userBehaviorHandler.GetUserSessions)
 	}
 
 	return r
