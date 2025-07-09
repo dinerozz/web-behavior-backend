@@ -32,6 +32,7 @@ type CreateExtensionUserRequest struct {
 type UpdateExtensionUserRequest struct {
 	Username *string `json:"username,omitempty" binding:"omitempty,min=3,max=100"`
 	IsActive *bool   `json:"isActive,omitempty"`
+	APIKey   *string `json:"apiKey,omitempty"`
 }
 
 type RegenerateAPIKeyResponse struct {

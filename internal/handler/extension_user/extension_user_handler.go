@@ -236,6 +236,7 @@ func (h *ExtensionUserHandler) UpdateExtensionUser(c *gin.Context) {
 			})
 			return
 		}
+		// todo check api key for unique
 		if err.Error() == "username already exists" {
 			c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
 				Message: err.Error(),

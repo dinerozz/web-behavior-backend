@@ -164,6 +164,12 @@ func (r *extensionUserRepository) Update(ctx context.Context, id uuid.UUID, req 
 		argIndex++
 	}
 
+	if req.APIKey != nil {
+		setParts = append(setParts, fmt.Sprintf("api_key = $%d", argIndex))
+		args = append(args, *req.APIKey)
+		argIndex++
+	}
+
 	if len(setParts) == 0 {
 		return r.GetByID(ctx, id)
 	}
