@@ -67,13 +67,25 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "Limit (default: 100, max: 1000)",
+                        "description": "Page number (starts from 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Items per page (default: 20, max: 1000)",
+                        "name": "per_page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit (deprecated, use per_page)",
                         "name": "limit",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "Offset (default: 0)",
+                        "description": "Offset (deprecated, use page)",
                         "name": "offset",
                         "in": "query"
                     }
@@ -84,7 +96,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/wrapper.ResponseWrapper"
+                                    "$ref": "#/definitions/entity.PaginatedResponse"
                                 },
                                 {
                                     "type": "object",
@@ -1362,6 +1374,35 @@ const docTemplate = `{
                 }
             }
         },
+        "entity.PaginatedResponse": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "pagination": {
+                    "$ref": "#/definitions/entity.PaginationInfo"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "entity.PaginationInfo": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "type": "integer"
+                },
+                "per_page": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "total_pages": {
+                    "type": "integer"
+                }
+            }
+        },
         "entity.RegenerateAPIKeyResponse": {
             "type": "object",
             "properties": {
@@ -1378,7 +1419,7 @@ const docTemplate = `{
             "properties": {
                 "duration": {
                     "description": "в секундах",
-                    "type": "integer"
+                    "type": "number"
                 },
                 "endTime": {
                     "type": "string"
@@ -1420,6 +1461,9 @@ const docTemplate = `{
         "entity.UpdateExtensionUserRequest": {
             "type": "object",
             "properties": {
+                "apiKey": {
+                    "type": "string"
+                },
                 "isActive": {
                     "type": "boolean"
                 },

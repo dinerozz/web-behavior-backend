@@ -147,7 +147,7 @@ func (h *UserBehaviorHandler) GetBehaviorByID(c *gin.Context) {
 // @Param        per_page   query     int     false  "Items per page (default: 20, max: 1000)"
 // @Param        limit      query     int     false  "Limit (deprecated, use per_page)"
 // @Param        offset     query     int     false  "Offset (deprecated, use page)"
-// @Success      200        {object}  wrapper.PaginatedResponse{data=[]entity.UserBehavior}
+// @Success      200        {object}  entity.PaginatedResponse{data=[]entity.UserBehavior}
 // @Failure      400        {object}  wrapper.ErrorWrapper
 // @Failure      500        {object}  wrapper.ErrorWrapper
 // @Router       /behaviors [get]
