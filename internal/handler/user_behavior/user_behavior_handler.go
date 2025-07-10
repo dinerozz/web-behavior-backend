@@ -251,10 +251,10 @@ func (h *UserBehaviorHandler) GetBehaviors(c *gin.Context) {
 	}
 
 	if paginationInfo != nil {
-		c.JSON(http.StatusOK, entity.PaginatedResponse{
+		c.JSON(http.StatusOK, wrapper.PaginatedResponseWrapper{
 			Data:    behaviors,
 			Success: true,
-			Pagination: entity.PaginationInfo{
+			Meta: entity.PaginationInfo{
 				Page:       paginationInfo.Page,
 				PerPage:    paginationInfo.PerPage,
 				Total:      paginationInfo.Total,
