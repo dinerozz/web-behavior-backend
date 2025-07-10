@@ -6,11 +6,13 @@ import (
 	"github.com/dinerozz/web-behavior-backend/config"
 	"github.com/dinerozz/web-behavior-backend/docs"
 	userExtensionHandler "github.com/dinerozz/web-behavior-backend/internal/handler/extension_user"
+	"github.com/dinerozz/web-behavior-backend/internal/handler/metrics"
 	userHandler "github.com/dinerozz/web-behavior-backend/internal/handler/user"
 	handler "github.com/dinerozz/web-behavior-backend/internal/handler/user_behavior"
 	userBehaviorHandler "github.com/dinerozz/web-behavior-backend/internal/handler/user_behavior"
 	"github.com/dinerozz/web-behavior-backend/internal/repository"
 	extensionUserService "github.com/dinerozz/web-behavior-backend/internal/service/extension_user"
+	metricsService "github.com/dinerozz/web-behavior-backend/internal/service/metrics_service"
 	"github.com/dinerozz/web-behavior-backend/internal/service/user"
 	service "github.com/dinerozz/web-behavior-backend/internal/service/user_behavior"
 	"github.com/dinerozz/web-behavior-backend/middleware"
@@ -32,6 +34,7 @@ type RouterHandler struct {
 	userBehaviorHandler  *userBehaviorHandler.UserBehaviorHandler
 	userExtensionHandler *userExtensionHandler.ExtensionUserHandler
 	userExtensionService extensionUserService.ExtensionUserService
+	userMetricsHandler   *metrics.MetricsHandler
 }
 
 func RunServer(config *config.Config) {
@@ -59,20 +62,24 @@ func RunServer(config *config.Config) {
 	userRepo := repository.NewUserRepository(db)
 	userBehaviorRepo := repository.NewUserBehaviorRepository(db)
 	userExtensionRepo := repository.NewExtensionUserRepository(db)
+	userMetricsRepo := repository.NewMetricsRepository(db)
 
 	userSrv := user.NewUserService(userRepo)
 	userBehaviorService := service.NewUserBehaviorService(userBehaviorRepo)
 	userExtensionService := extensionUserService.NewExtensionUserService(userExtensionRepo)
+	userMetricsService := metricsService.NewMetricsService(userMetricsRepo)
 
 	userHandler := userHandler.NewUserHandler(userSrv)
 	userBehaviorHandler := handler.NewUserBehaviorHandler(userBehaviorService)
 	userExtensionHandler := userExtensionHandler.NewExtensionUserHandler(userExtensionService)
+	userMetricsHandler := metrics.NewMetricsHandler(userMetricsService)
 
 	routerHandler := &RouterHandler{
 		userHandler:          userHandler,
 		userBehaviorHandler:  userBehaviorHandler,
 		userExtensionHandler: userExtensionHandler,
 		userExtensionService: userExtensionService,
+		userMetricsHandler:   userMetricsHandler,
 	}
 
 	r := setupRouter(routerHandler)
@@ -191,6 +198,8 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 		privateRoutes.GET("/behaviors/sessions/:sessionId", routerHandler.userBehaviorHandler.GetSessionSummary)
 		privateRoutes.GET("/behaviors/:id", routerHandler.userBehaviorHandler.GetBehaviorByID)
 		privateRoutes.GET("/behaviors/users/:userId/sessions", routerHandler.userBehaviorHandler.GetUserSessions)
+		privateRoutes.GET("/metrics_service/tracked-time", routerHandler.userMetricsHandler.GetTrackedTime)
+		privateRoutes.GET("/metrics_service/tracked-time-total", routerHandler.userMetricsHandler.GetTrackedTimeTotal)
 
 		privateRoutes.DELETE("/behaviors/:id", routerHandler.userBehaviorHandler.DeleteBehavior)
 

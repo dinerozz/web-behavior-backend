@@ -1,4 +1,4 @@
-// entity/metrics.go
+// entity/metrics_service.go
 package entity
 
 import "time"

@@ -136,6 +136,32 @@ definitions:
       userName:
         type: string
     type: object
+  entity.TrackedTimeMetric:
+    properties:
+      end_time:
+        type: string
+      period:
+        type: string
+      sessions:
+        type: integer
+      start_time:
+        type: string
+      total_hours:
+        type: number
+      total_minutes:
+        type: number
+      user_id:
+        type: string
+    type: object
+  entity.TrackedTimeResponse:
+    properties:
+      data:
+        $ref: '#/definitions/entity.TrackedTimeMetric'
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
   entity.URLStats:
     properties:
       count:
@@ -944,6 +970,92 @@ paths:
       summary: Get extension users statistics
       tags:
       - /api/v1/admin/extension
+  /metrics/tracked-time:
+    get:
+      consumes:
+      - application/json
+      description: Calculate tracked time (sum of session durations) for a user
+      parameters:
+      - description: User ID
+        in: query
+        name: user_id
+        required: true
+        type: string
+      - description: Start time (RFC3339 format)
+        in: query
+        name: start_time
+        required: true
+        type: string
+      - description: End time (RFC3339 format)
+        in: query
+        name: end_time
+        required: true
+        type: string
+      - description: Specific session ID
+        in: query
+        name: session_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/entity.TrackedTimeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get tracked time metric
+      tags:
+      - /api/v1/admin/metrics
+  /metrics/tracked-time-total:
+    get:
+      consumes:
+      - application/json
+      description: Calculate total time from first to last event for a user
+      parameters:
+      - description: User ID
+        in: query
+        name: user_id
+        required: true
+        type: string
+      - description: Start time (RFC3339 format)
+        in: query
+        name: start_time
+        required: true
+        type: string
+      - description: End time (RFC3339 format)
+        in: query
+        name: end_time
+        required: true
+        type: string
+      - description: Specific session ID
+        in: query
+        name: session_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/entity.TrackedTimeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get total tracked time metric
+      tags:
+      - /api/v1/admin/metrics
   /users/auth:
     post:
       consumes:
