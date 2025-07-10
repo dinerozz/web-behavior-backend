@@ -2,9 +2,11 @@
 package handler
 
 import (
+	"fmt"
 	service "github.com/dinerozz/web-behavior-backend/internal/service/user_behavior"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/dinerozz/web-behavior-backend/internal/entity"
@@ -143,6 +145,7 @@ func (h *UserBehaviorHandler) GetBehaviorByID(c *gin.Context) {
 // @Param        url        query     string  false  "URL (partial match)"
 // @Param        startTime  query     string  false  "Start time (RFC3339 format)"
 // @Param        endTime    query     string  false  "End time (RFC3339 format)"
+// @Param        period     query     string  false  "Time period filter: 'today', 'week', 'month', 'year'"
 // @Param        page       query     int     false  "Page number (starts from 1)"
 // @Param        per_page   query     int     false  "Items per page (default: 20, max: 1000)"
 // @Param        limit      query     int     false  "Limit (deprecated, use per_page)"
@@ -171,29 +174,42 @@ func (h *UserBehaviorHandler) GetBehaviors(c *gin.Context) {
 		filter.URL = &url
 	}
 
-	if startTimeStr := c.Query("startTime"); startTimeStr != "" {
-		startTime, err := time.Parse(time.RFC3339, startTimeStr)
+	// Обработка периода времени
+	if period := c.Query("period"); period != "" {
+		startTime, endTime, err := h.getPeriodTimeRange(period)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
-				Message: "Invalid startTime format, use RFC3339",
+				Message: fmt.Sprintf("Invalid period '%s'. Valid values: today, week, month, year", period),
 			})
 			return
 		}
 		filter.StartTime = &startTime
-	}
-
-	if endTimeStr := c.Query("endTime"); endTimeStr != "" {
-		endTime, err := time.Parse(time.RFC3339, endTimeStr)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
-				Message: "Invalid endTime format, use RFC3339",
-			})
-			return
-		}
 		filter.EndTime = &endTime
+	} else {
+		// Обработка точных дат (если period не указан)
+		if startTimeStr := c.Query("startTime"); startTimeStr != "" {
+			startTime, err := time.Parse(time.RFC3339, startTimeStr)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
+					Message: "Invalid startTime format, use RFC3339",
+				})
+				return
+			}
+			filter.StartTime = &startTime
+		}
+
+		if endTimeStr := c.Query("endTime"); endTimeStr != "" {
+			endTime, err := time.Parse(time.RFC3339, endTimeStr)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
+					Message: "Invalid endTime format, use RFC3339",
+				})
+				return
+			}
+			filter.EndTime = &endTime
+		}
 	}
 
-	// Новые параметры пагинации
 	if pageStr := c.Query("page"); pageStr != "" {
 		page, err := strconv.Atoi(pageStr)
 		if err != nil || page < 1 {
@@ -267,6 +283,50 @@ func (h *UserBehaviorHandler) GetBehaviors(c *gin.Context) {
 			Success: true,
 		})
 	}
+}
+
+func (h *UserBehaviorHandler) getPeriodTimeRange(period string) (time.Time, time.Time, error) {
+	now := time.Now()
+	var startTime, endTime time.Time
+
+	switch strings.ToLower(period) {
+	case "today":
+		// С начала дня до конца дня
+		startTime = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		endTime = time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 999999999, now.Location())
+
+	case "week":
+		// С начала недели (понедельник) до конца недели (воскресенье)
+		weekday := int(now.Weekday())
+		if weekday == 0 { // воскресенье в Go = 0, делаем его 7
+			weekday = 7
+		}
+
+		// Начало недели (понедельник)
+		daysFromMonday := weekday - 1
+		monday := now.AddDate(0, 0, -daysFromMonday)
+		startTime = time.Date(monday.Year(), monday.Month(), monday.Day(), 0, 0, 0, 0, monday.Location())
+
+		// Конец недели (воскресенье)
+		sunday := monday.AddDate(0, 0, 6)
+		endTime = time.Date(sunday.Year(), sunday.Month(), sunday.Day(), 23, 59, 59, 999999999, sunday.Location())
+
+	case "month":
+		// С начала месяца до конца месяца
+		startTime = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+		endTime = startTime.AddDate(0, 1, -1) // последний день месяца
+		endTime = time.Date(endTime.Year(), endTime.Month(), endTime.Day(), 23, 59, 59, 999999999, endTime.Location())
+
+	case "year":
+		// С начала года до конца года
+		startTime = time.Date(now.Year(), 1, 1, 0, 0, 0, 0, now.Location())
+		endTime = time.Date(now.Year(), 12, 31, 23, 59, 59, 999999999, now.Location())
+
+	default:
+		return time.Time{}, time.Time{}, fmt.Errorf("unsupported period: %s", period)
+	}
+
+	return startTime, endTime, nil
 }
 
 // GetStats godoc

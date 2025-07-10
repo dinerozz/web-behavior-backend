@@ -346,6 +346,10 @@ paths:
         in: query
         name: endTime
         type: string
+      - description: 'Time period filter: ''today'', ''week'', ''month'', ''year'''
+        in: query
+        name: period
+        type: string
       - description: Page number (starts from 1)
         in: query
         name: page

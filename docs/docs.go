@@ -66,6 +66,12 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "Time period filter: 'today', 'week', 'month', 'year'",
+                        "name": "period",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "description": "Page number (starts from 1)",
                         "name": "page",
