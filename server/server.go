@@ -195,6 +195,7 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 		privateRoutes.GET("/users/profile", routerHandler.userHandler.GetUserById)
 		privateRoutes.POST("/users/logout", routerHandler.userHandler.Logout)
 		privateRoutes.GET("/behaviors", routerHandler.userBehaviorHandler.GetBehaviors)
+		privateRoutes.GET("/behaviors/periods", routerHandler.userBehaviorHandler.GetBehaviorsPeriods)
 		privateRoutes.GET("/behaviors/stats", routerHandler.userBehaviorHandler.GetStats)
 		privateRoutes.GET("/behaviors/sessions/:sessionId", routerHandler.userBehaviorHandler.GetSessionSummary)
 		privateRoutes.GET("/behaviors/:id", routerHandler.userBehaviorHandler.GetBehaviorByID)

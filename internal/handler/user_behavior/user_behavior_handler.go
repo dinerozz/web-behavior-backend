@@ -329,6 +329,44 @@ func (h *UserBehaviorHandler) getPeriodTimeRange(period string) (time.Time, time
 	return startTime, endTime, nil
 }
 
+// GetBehaviorsPeriods godoc
+// @Summary      Get available time periods
+// @Description  Get list of available time period filters
+// @Tags         /api/v1/admin/behaviors
+// @Accept       json
+// @Produce      json
+// @Success      200        {object}  wrapper.ResponseWrapper{data=[]entity.PeriodInfo}
+// @Router       /behaviors/periods [get]
+func (h *UserBehaviorHandler) GetBehaviorsPeriods(c *gin.Context) {
+	periods := []entity.PeriodInfo{
+		{
+			Key:         "today",
+			Label:       "Сегодня",
+			Description: "События за текущий день",
+		},
+		{
+			Key:         "week",
+			Label:       "Эта неделя",
+			Description: "События за текущую неделю (понедельник - воскресенье)",
+		},
+		{
+			Key:         "month",
+			Label:       "Этот месяц",
+			Description: "События за текущий месяц",
+		},
+		{
+			Key:         "year",
+			Label:       "Этот год",
+			Description: "События за текущий год",
+		},
+	}
+
+	c.JSON(http.StatusOK, wrapper.ResponseWrapper{
+		Data:    periods,
+		Success: true,
+	})
+}
+
 // GetStats godoc
 // @Summary      Get behavior statistics
 // @Description  Get statistics about user behaviors
