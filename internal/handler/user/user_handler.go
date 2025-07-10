@@ -131,7 +131,7 @@ func (h *UserHandler) GetUserById(c *gin.Context) {
 // @Tags users
 // @Accept json
 // @Produce json
-// @Success 200 {object} wrapper.ResponseWrapper{data=string}
+// @Success 200 {object} wrapper.SuccessWrapper{message=string}
 // @Router /users/logout [post]
 func (h *UserHandler) Logout(c *gin.Context) {
 	c.SetCookie("token", "", -1, "/", "", false, true)

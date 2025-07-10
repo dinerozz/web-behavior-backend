@@ -306,6 +306,13 @@ definitions:
       success:
         type: boolean
     type: object
+  wrapper.SuccessWrapper:
+    properties:
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
 info:
   contact: {}
 paths:
@@ -1172,9 +1179,9 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - $ref: '#/definitions/wrapper.SuccessWrapper'
             - properties:
-                data:
+                message:
                   type: string
               type: object
       summary: Logout user

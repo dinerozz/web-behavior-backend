@@ -1400,12 +1400,12 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/wrapper.ResponseWrapper"
+                                    "$ref": "#/definitions/wrapper.SuccessWrapper"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
-                                        "data": {
+                                        "message": {
                                             "type": "string"
                                         }
                                     }
@@ -1924,6 +1924,17 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "data": {},
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "wrapper.SuccessWrapper": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
                 "success": {
                     "type": "boolean"
                 }
