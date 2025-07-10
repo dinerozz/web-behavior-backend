@@ -113,8 +113,6 @@ func (h *MetricsHandler) GetTrackedTime(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Param        user_id      query     string  true   "User ID"
-// @Param        start_time   query     string  true   "Start time (RFC3339 format)"
-// @Param        end_time     query     string  true   "End time (RFC3339 format)"
 // @Param        session_id   query     string  false  "Specific session ID"
 // @Success      200          {object}  entity.TrackedTimeResponse
 // @Failure      400          {object}  wrapper.ErrorWrapper
@@ -131,38 +129,6 @@ func (h *MetricsHandler) GetTrackedTimeTotal(c *gin.Context) {
 		})
 		return
 	}
-
-	startTimeStr := c.Query("start_time")
-	endTimeStr := c.Query("end_time")
-
-	if startTimeStr == "" || endTimeStr == "" {
-		c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
-			Message: "start_time and end_time are required",
-			Success: false,
-		})
-		return
-	}
-
-	startTime, err := time.Parse(time.RFC3339, startTimeStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
-			Message: "Invalid start_time format",
-			Success: false,
-		})
-		return
-	}
-
-	endTime, err := time.Parse(time.RFC3339, endTimeStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
-			Message: "Invalid end_time format",
-			Success: false,
-		})
-		return
-	}
-
-	filter.StartTime = startTime
-	filter.EndTime = endTime
 
 	if sessionID := c.Query("session_id"); sessionID != "" {
 		filter.SessionID = &sessionID

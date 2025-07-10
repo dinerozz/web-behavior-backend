@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"github.com/dinerozz/web-behavior-backend/internal/entity"
 	"github.com/dinerozz/web-behavior-backend/pkg/utils"
@@ -106,21 +107,20 @@ func (r *metricsRepository) GetTrackedTime(ctx context.Context, filter entity.Tr
 
 func (r *metricsRepository) GetTrackedTimeTotal(ctx context.Context, filter entity.TrackedTimeFilter) (*entity.TrackedTimeMetric, error) {
 	query := `
-			SELECT 
-				user_id,
-				MIN(timestamp) as period_start,
-				MAX(timestamp) as period_end,
-				EXTRACT(EPOCH FROM (MAX(timestamp) - MIN(timestamp))) / 60 as total_minutes,
-				COUNT(DISTINCT session_id) as sessions_count
-			FROM user_behaviors 
-			WHERE user_id = $1 
-				AND timestamp >= $2 
-				AND timestamp <= $3`
+        SELECT 
+            user_id,
+            MIN(timestamp) as actual_start,
+            MAX(timestamp) as actual_end,
+            EXTRACT(EPOCH FROM (MAX(timestamp) - MIN(timestamp))) / 60 as total_minutes,
+            COUNT(DISTINCT session_id) as sessions_count
+        FROM user_behaviors 
+        WHERE user_id = $1`
 
-	args := []interface{}{filter.UserID, filter.StartTime, filter.EndTime}
+	args := []interface{}{filter.UserID}
+	argIndex := 2
 
 	if filter.SessionID != nil {
-		query += " AND session_id = $4"
+		query += fmt.Sprintf(" AND session_id = $%d", argIndex)
 		args = append(args, *filter.SessionID)
 	}
 
@@ -128,8 +128,8 @@ func (r *metricsRepository) GetTrackedTimeTotal(ctx context.Context, filter enti
 
 	type result struct {
 		UserID        string    `db:"user_id"`
-		PeriodStart   time.Time `db:"period_start"`
-		PeriodEnd     time.Time `db:"period_end"`
+		ActualStart   time.Time `db:"actual_start"`
+		ActualEnd     time.Time `db:"actual_end"`
 		TotalMinutes  float64   `db:"total_minutes"`
 		SessionsCount int       `db:"sessions_count"`
 	}
@@ -137,16 +137,25 @@ func (r *metricsRepository) GetTrackedTimeTotal(ctx context.Context, filter enti
 	var res result
 	err := r.db.GetContext(ctx, &res, query, args...)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return &entity.TrackedTimeMetric{
+				UserID:       filter.UserID,
+				TotalMinutes: 0,
+				TotalHours:   0,
+				Sessions:     0,
+				Period:       utils.FormatPeriod(filter.StartTime, filter.EndTime),
+			}, nil
+		}
 		return nil, fmt.Errorf("failed to get total tracked time: %w", err)
 	}
 
 	return &entity.TrackedTimeMetric{
 		UserID:       res.UserID,
-		TotalMinutes: res.TotalMinutes,
-		TotalHours:   res.TotalMinutes / 60,
+		TotalMinutes: utils.RoundToTwoDecimals(res.TotalMinutes),
+		TotalHours:   utils.RoundToTwoDecimals(res.TotalMinutes / 60),
 		Sessions:     res.SessionsCount,
-		StartTime:    res.PeriodStart,
-		EndTime:      res.PeriodEnd,
-		Period:       utils.FormatPeriod(filter.StartTime, filter.EndTime),
+		StartTime:    res.ActualStart,
+		EndTime:      res.ActualEnd,
+		Period:       utils.FormatPeriod(res.ActualStart, res.ActualEnd),
 	}, nil
 }

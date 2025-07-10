@@ -47,10 +47,6 @@ func (s *MetricsService) GetTrackedTimeTotal(ctx context.Context, filter entity.
 		return nil, fmt.Errorf("user_id is required")
 	}
 
-	if filter.StartTime.IsZero() || filter.EndTime.IsZero() {
-		return nil, fmt.Errorf("start_time and end_time are required")
-	}
-
 	metric, err := s.repo.GetTrackedTimeTotal(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate total tracked time: %w", err)
