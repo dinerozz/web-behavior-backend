@@ -32,7 +32,7 @@ func NewUserBehaviorService(repo repository.UserBehaviorRepository) UserBehavior
 	}
 }
 
-// Допустимые типы событий
+// event types
 var validEventTypes = map[string]bool{
 	"pageshow":           true,
 	"click":              true,

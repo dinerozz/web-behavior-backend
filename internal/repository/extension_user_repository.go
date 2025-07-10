@@ -27,6 +27,7 @@ type ExtensionUserRepository interface {
 	UpdateLastUsed(ctx context.Context, apiKey string) error
 	GetStats(ctx context.Context) (*entity.ExtensionUserStats, error)
 	IsAPIKeyValid(ctx context.Context, apiKey string) bool
+	CountByFilter(ctx context.Context, filter entity.ExtensionUserFilter) (int, error)
 }
 
 type extensionUserRepository struct {
@@ -127,16 +128,20 @@ func (r *extensionUserRepository) GetAll(ctx context.Context, filter entity.Exte
 
 	query += " ORDER BY created_at DESC"
 
-	if filter.Limit > 0 {
-		query += fmt.Sprintf(" LIMIT $%d", argIndex)
-		args = append(args, filter.Limit)
-		argIndex++
-	}
-
-	if filter.Offset > 0 {
-		query += fmt.Sprintf(" OFFSET $%d", argIndex)
-		args = append(args, filter.Offset)
-		argIndex++
+	if filter.Page > 0 && filter.PerPage > 0 {
+		offset := (filter.Page - 1) * filter.PerPage
+		query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
+		args = append(args, filter.PerPage, offset)
+	} else {
+		if filter.Limit > 0 {
+			query += fmt.Sprintf(" LIMIT $%d", argIndex)
+			args = append(args, filter.Limit)
+			argIndex++
+		}
+		if filter.Offset > 0 {
+			query += fmt.Sprintf(" OFFSET $%d", argIndex)
+			args = append(args, filter.Offset)
+		}
 	}
 
 	err := r.db.SelectContext(ctx, &users, query, args...)
@@ -145,6 +150,28 @@ func (r *extensionUserRepository) GetAll(ctx context.Context, filter entity.Exte
 	}
 
 	return users, nil
+}
+
+func (r *extensionUserRepository) CountByFilter(ctx context.Context, filter entity.ExtensionUserFilter) (int, error) {
+	query := "SELECT COUNT(*) FROM extension_users WHERE 1=1"
+	args := []interface{}{}
+	argIndex := 1
+
+	if filter.Username != "" {
+		query += fmt.Sprintf(" AND username ILIKE $%d", argIndex)
+		args = append(args, "%"+filter.Username+"%")
+		argIndex++
+	}
+
+	if filter.IsActive != nil {
+		query += fmt.Sprintf(" AND is_active = $%d", argIndex)
+		args = append(args, *filter.IsActive)
+		argIndex++
+	}
+
+	var count int
+	err := r.db.GetContext(ctx, &count, query, args...)
+	return count, err
 }
 
 func (r *extensionUserRepository) Update(ctx context.Context, id uuid.UUID, req entity.UpdateExtensionUserRequest) (*entity.ExtensionUser, error) {

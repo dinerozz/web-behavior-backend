@@ -671,13 +671,25 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "Limit (default: 50, max: 200)",
+                        "description": "Page number (starts from 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Items per page (default: 20, max: 200)",
+                        "name": "per_page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit (deprecated, use per_page)",
                         "name": "limit",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "Offset (default: 0)",
+                        "description": "Offset (deprecated, use page)",
                         "name": "offset",
                         "in": "query"
                     }
@@ -688,7 +700,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/wrapper.ResponseWrapper"
+                                    "$ref": "#/definitions/wrapper.PaginatedResponseWrapper"
                                 },
                                 {
                                     "type": "object",
@@ -1584,6 +1596,18 @@ const docTemplate = `{
             "properties": {
                 "message": {
                     "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "wrapper.PaginatedResponseWrapper": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "meta": {
+                    "$ref": "#/definitions/entity.PaginationInfo"
                 },
                 "success": {
                     "type": "boolean"

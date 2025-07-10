@@ -231,6 +231,14 @@ definitions:
       success:
         type: boolean
     type: object
+  wrapper.PaginatedResponseWrapper:
+    properties:
+      data: {}
+      meta:
+        $ref: '#/definitions/entity.PaginationInfo'
+      success:
+        type: boolean
+    type: object
   wrapper.ResponseWrapper:
     properties:
       data: {}
@@ -642,11 +650,19 @@ paths:
         in: query
         name: isActive
         type: boolean
-      - description: 'Limit (default: 50, max: 200)'
+      - description: Page number (starts from 1)
+        in: query
+        name: page
+        type: integer
+      - description: 'Items per page (default: 20, max: 200)'
+        in: query
+        name: per_page
+        type: integer
+      - description: Limit (deprecated, use per_page)
         in: query
         name: limit
         type: integer
-      - description: 'Offset (default: 0)'
+      - description: Offset (deprecated, use page)
         in: query
         name: offset
         type: integer
@@ -657,7 +673,7 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - $ref: '#/definitions/wrapper.PaginatedResponseWrapper'
             - properties:
                 data:
                   items:

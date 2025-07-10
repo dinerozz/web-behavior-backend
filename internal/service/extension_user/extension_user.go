@@ -15,7 +15,7 @@ type ExtensionUserService interface {
 	GetUserByID(ctx context.Context, id uuid.UUID) (*entity.ExtensionUser, error)
 	GetUserByAPIKey(ctx context.Context, apiKey string) (*entity.ExtensionUser, error)
 	GetUserByUsername(ctx context.Context, username string) (*entity.ExtensionUserPublic, error)
-	GetAllUsers(ctx context.Context, filter entity.ExtensionUserFilter) ([]entity.ExtensionUserPublic, error)
+	GetAllUsers(ctx context.Context, filter entity.ExtensionUserFilter) ([]entity.ExtensionUserPublic, *entity.PaginationInfo, error)
 	UpdateUser(ctx context.Context, id uuid.UUID, req entity.UpdateExtensionUserRequest) (*entity.ExtensionUserPublic, error)
 	RegenerateAPIKey(ctx context.Context, id uuid.UUID) (*entity.RegenerateAPIKeyResponse, error)
 	DeleteUser(ctx context.Context, id uuid.UUID) error
@@ -102,17 +102,26 @@ func (s *extensionUserService) GetUserByUsername(ctx context.Context, username s
 	return s.toPublicUser(user), nil
 }
 
-func (s *extensionUserService) GetAllUsers(ctx context.Context, filter entity.ExtensionUserFilter) ([]entity.ExtensionUserPublic, error) {
-	if filter.Limit <= 0 {
-		filter.Limit = 50
-	}
-	if filter.Limit > 200 {
-		filter.Limit = 200
+func (s *extensionUserService) GetAllUsers(ctx context.Context, filter entity.ExtensionUserFilter) ([]entity.ExtensionUserPublic, *entity.PaginationInfo, error) {
+	if filter.Page > 0 && filter.PerPage > 0 {
+		if filter.PerPage > 200 {
+			filter.PerPage = 200
+		}
+		if filter.Page < 1 {
+			filter.Page = 1
+		}
+	} else {
+		if filter.Limit <= 0 {
+			filter.Limit = 50
+		}
+		if filter.Limit > 200 {
+			filter.Limit = 200
+		}
 	}
 
 	users, err := s.repo.GetAll(ctx, filter)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get users: %w", err)
+		return nil, nil, fmt.Errorf("failed to get users: %w", err)
 	}
 
 	publicUsers := make([]entity.ExtensionUserPublic, len(users))
@@ -120,7 +129,23 @@ func (s *extensionUserService) GetAllUsers(ctx context.Context, filter entity.Ex
 		publicUsers[i] = *s.toPublicUser(&user)
 	}
 
-	return publicUsers, nil
+	var paginationInfo *entity.PaginationInfo
+	if filter.Page > 0 && filter.PerPage > 0 {
+		total, err := s.repo.CountByFilter(ctx, filter)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to count users: %w", err)
+		}
+
+		totalPages := (total + filter.PerPage - 1) / filter.PerPage
+		paginationInfo = &entity.PaginationInfo{
+			Page:       filter.Page,
+			PerPage:    filter.PerPage,
+			Total:      total,
+			TotalPages: totalPages,
+		}
+	}
+
+	return publicUsers, paginationInfo, nil
 }
 
 func (s *extensionUserService) UpdateUser(ctx context.Context, id uuid.UUID, req entity.UpdateExtensionUserRequest) (*entity.ExtensionUserPublic, error) {

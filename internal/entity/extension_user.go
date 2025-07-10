@@ -41,10 +41,12 @@ type RegenerateAPIKeyResponse struct {
 }
 
 type ExtensionUserFilter struct {
-	Username string `form:"username"`
-	IsActive *bool  `form:"isActive"`
-	Limit    int    `form:"limit"`
-	Offset   int    `form:"offset"`
+	Username string `form:"username" json:"username"`
+	IsActive *bool  `form:"isActive" json:"is_active"`
+	Limit    int    `form:"limit" json:"limit"`
+	Offset   int    `form:"offset" json:"offset"`
+	Page     int    `form:"page" json:"page"`
+	PerPage  int    `form:"per_page" json:"per_page"`
 }
 
 type ExtensionUserStats struct {
