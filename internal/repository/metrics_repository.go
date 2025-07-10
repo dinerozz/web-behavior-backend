@@ -7,6 +7,7 @@ import (
 	"github.com/dinerozz/web-behavior-backend/internal/entity"
 	"github.com/dinerozz/web-behavior-backend/pkg/utils"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"strings"
 	"time"
 )
@@ -203,6 +204,30 @@ func (r *metricsRepository) GetEngagedTime(ctx context.Context, filter entity.En
             AND ub.timestamp >= tb.actual_start 
             AND ub.timestamp <= tb.actual_end
             AND ub.event_type IN (%s) %s
+    ),
+    domains_data AS (
+        SELECT 
+            COUNT(DISTINCT 
+                CASE 
+                    WHEN url ~ '^https?://' THEN 
+                        split_part(split_part(url, '://', 2), '/', 1)
+                    ELSE 
+                        split_part(url, '/', 1)
+                END
+            ) as unique_domains_count,
+            array_agg(DISTINCT 
+                CASE 
+                    WHEN url ~ '^https?://' THEN 
+                        split_part(split_part(url, '://', 2), '/', 1)
+                    ELSE 
+                        split_part(url, '/', 1)
+                END
+            ) FILTER (WHERE url IS NOT NULL AND url != '') as domains_list
+        FROM user_behaviors ub
+        CROSS JOIN time_bounds tb
+        WHERE ub.user_id = $1 
+            AND ub.timestamp >= tb.actual_start 
+            AND ub.timestamp <= tb.actual_end %s
     )
     SELECT 
         -- Используем FLOOR от tracked_minutes как максимум
@@ -211,18 +236,23 @@ func (r *metricsRepository) GetEngagedTime(ctx context.Context, filter entity.En
         COALESCE(ad.sessions_count, 0) as sessions_count,
         COALESCE(tb.actual_start, $2::timestamp) as period_start,
         COALESCE(tb.actual_end, $3::timestamp) as period_end,
-        COALESCE(tb.total_minutes, 0) as total_minutes
+        COALESCE(tb.total_minutes, 0) as total_minutes,
+        COALESCE(dd.unique_domains_count, 0) as unique_domains_count,
+        COALESCE(dd.domains_list, ARRAY[]::text[]) as domains_list
     FROM time_bounds tb
-    FULL OUTER JOIN active_data ad ON true`,
-		sessionCondition, strings.Join(placeholders, ","), sessionCondition)
+    FULL OUTER JOIN active_data ad ON true
+    FULL OUTER JOIN domains_data dd ON true`,
+		sessionCondition, strings.Join(placeholders, ","), sessionCondition, sessionCondition)
 
 	type result struct {
-		ActiveMinutes     int       `db:"active_minutes"`
-		ActiveEventsCount int       `db:"active_events_count"`
-		SessionsCount     int       `db:"sessions_count"`
-		PeriodStart       time.Time `db:"period_start"`
-		PeriodEnd         time.Time `db:"period_end"`
-		TotalMinutes      float64   `db:"total_minutes"`
+		ActiveMinutes      int            `db:"active_minutes"`
+		ActiveEventsCount  int            `db:"active_events_count"`
+		SessionsCount      int            `db:"sessions_count"`
+		PeriodStart        time.Time      `db:"period_start"`
+		PeriodEnd          time.Time      `db:"period_end"`
+		TotalMinutes       float64        `db:"total_minutes"`
+		UniqueDomainsCount int            `db:"unique_domains_count"`
+		DomainsList        pq.StringArray `db:"domains_list"`
 	}
 
 	var res result
@@ -236,17 +266,52 @@ func (r *metricsRepository) GetEngagedTime(ctx context.Context, filter entity.En
 		engagementRate = utils.RoundToTwoDecimals((float64(res.ActiveMinutes) / res.TotalMinutes) * 100)
 	}
 
+	focusLevel := r.determineFocusLevel(res.UniqueDomainsCount)
+	focusInsight := r.generateFocusInsight(res.UniqueDomainsCount, res.DomainsList)
+
 	return &entity.EngagedTimeMetric{
-		UserID:         filter.UserID,
-		ActiveMinutes:  res.ActiveMinutes,
-		ActiveHours:    utils.RoundToTwoDecimals(float64(res.ActiveMinutes) / 60),
-		ActiveEvents:   res.ActiveEventsCount,
-		Sessions:       res.SessionsCount,
-		TrackedMinutes: utils.RoundToTwoDecimals(res.TotalMinutes),
-		TrackedHours:   utils.RoundToTwoDecimals(res.TotalMinutes / 60),
-		EngagementRate: engagementRate,
-		StartTime:      res.PeriodStart,
-		EndTime:        res.PeriodEnd,
-		Period:         utils.FormatPeriod(res.PeriodStart, res.PeriodEnd),
+		UserID:             filter.UserID,
+		ActiveMinutes:      res.ActiveMinutes,
+		ActiveHours:        utils.RoundToTwoDecimals(float64(res.ActiveMinutes) / 60),
+		ActiveEvents:       res.ActiveEventsCount,
+		Sessions:           res.SessionsCount,
+		TrackedMinutes:     utils.RoundToTwoDecimals(res.TotalMinutes),
+		TrackedHours:       utils.RoundToTwoDecimals(res.TotalMinutes / 60),
+		EngagementRate:     engagementRate,
+		StartTime:          res.PeriodStart,
+		EndTime:            res.PeriodEnd,
+		Period:             utils.FormatPeriod(res.PeriodStart, res.PeriodEnd),
+		UniqueDomainsCount: res.UniqueDomainsCount,
+		DomainsList:        []string(res.DomainsList),
+		FocusLevel:         focusLevel,
+		FocusInsight:       focusInsight,
 	}, nil
+}
+
+// determineFocusLevel определяет уровень фокуса на основе количества доменов
+func (r *metricsRepository) determineFocusLevel(domainsCount int) string {
+	switch {
+	case domainsCount <= 5:
+		return "high" // Высокая концентрация
+	case domainsCount <= 15:
+		return "medium" // Сбалансированная многозадачность
+	default:
+		return "low" // Высокая многозадачность/расфокус
+	}
+}
+
+func (r *metricsRepository) generateFocusInsight(domainsCount int, domains []string) string {
+	switch {
+	case domainsCount <= 5:
+		return fmt.Sprintf("Пользователь работал в ограниченном числе сайтов (%d доменов), что свидетельствует о высокой концентрации и глубокой работе в рамках одного контекста.", domainsCount)
+
+	case domainsCount <= 15:
+		return fmt.Sprintf("За сессию пользователь посетил %d уникальных сайтов. Сбалансированная многозадачность без явных признаков расфокуса.", domainsCount)
+
+	case domainsCount <= 25:
+		return fmt.Sprintf("За период зафиксировано %d уникальных сайтов. Повышенная контекстная нагрузка - возможно, сотрудник работает в режиме постоянных переключений, что может снижать продуктивность.", domainsCount)
+
+	default:
+		return fmt.Sprintf("Зафиксировано %d уникальных сайтов - очень высокий уровень переключений между контекстами. Рекомендуется проверить фокус задач и возможную декомпозицию работы.", domainsCount)
+	}
 }

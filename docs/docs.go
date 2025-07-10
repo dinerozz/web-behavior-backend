@@ -1586,12 +1586,24 @@ const docTemplate = `{
                 "active_minutes": {
                     "type": "integer"
                 },
+                "domains_list": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "end_time": {
                     "type": "string"
                 },
                 "engagement_rate": {
-                    "description": "active_minutes / tracked_minutes * 100",
                     "type": "number"
+                },
+                "focus_insight": {
+                    "type": "string"
+                },
+                "focus_level": {
+                    "description": "\"high\", \"medium\", \"low\"",
+                    "type": "string"
                 },
                 "period": {
                     "type": "string"
@@ -1607,6 +1619,9 @@ const docTemplate = `{
                 },
                 "tracked_minutes": {
                     "type": "number"
+                },
+                "unique_domains_count": {
+                    "type": "integer"
                 },
                 "user_id": {
                     "type": "string"
