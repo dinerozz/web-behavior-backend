@@ -95,8 +95,8 @@ func (r *metricsRepository) GetTrackedTime(ctx context.Context, filter entity.Tr
 
 	return &entity.TrackedTimeMetric{
 		UserID:       filter.UserID,
-		TotalMinutes: totalMinutes,
-		TotalHours:   totalMinutes / 60,
+		TotalMinutes: utils.RoundToTwoDecimals(totalMinutes),
+		TotalHours:   utils.RoundToTwoDecimals(totalMinutes / 60),
 		Sessions:     len(sessions),
 		StartTime:    globalStart,
 		EndTime:      globalEnd,
