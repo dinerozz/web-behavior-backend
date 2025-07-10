@@ -1160,6 +1160,26 @@ paths:
       summary: Create or authenticate user with password
       tags:
       - users
+  /users/logout:
+    post:
+      consumes:
+      - application/json
+      description: Logout user by clearing authentication cookie
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  type: string
+              type: object
+      summary: Logout user
+      tags:
+      - users
   /users/profile:
     get:
       consumes:

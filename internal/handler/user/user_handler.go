@@ -124,3 +124,20 @@ func (h *UserHandler) GetUserById(c *gin.Context) {
 
 	c.JSON(http.StatusOK, wrapper.ResponseWrapper{Data: user, Success: true})
 }
+
+// Logout godoc
+// @Summary Logout user
+// @Description Logout user by clearing authentication cookie
+// @Tags users
+// @Accept json
+// @Produce json
+// @Success 200 {object} wrapper.ResponseWrapper{data=string}
+// @Router /users/logout [post]
+func (h *UserHandler) Logout(c *gin.Context) {
+	c.SetCookie("token", "", -1, "/", "", false, true)
+
+	c.JSON(http.StatusOK, wrapper.SuccessWrapper{
+		Message: "Successfully logged out",
+		Success: true,
+	})
+}
