@@ -142,6 +142,15 @@ definitions:
       total_pages:
         type: integer
     type: object
+  entity.PeriodInfo:
+    properties:
+      description:
+        type: string
+      key:
+        type: string
+      label:
+        type: string
+    type: object
   entity.RegenerateAPIKeyResponse:
     properties:
       apiKey:
@@ -535,6 +544,28 @@ paths:
       summary: Batch create user behavior events
       tags:
       - /api/v1/inayla/behaviors
+  /behaviors/periods:
+    get:
+      consumes:
+      - application/json
+      description: Get list of available time period filters
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/entity.PeriodInfo'
+                  type: array
+              type: object
+      summary: Get available time periods
+      tags:
+      - /api/v1/admin/behaviors
   /behaviors/sessions/{sessionId}:
     get:
       consumes:
