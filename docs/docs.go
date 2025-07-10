@@ -1145,6 +1145,70 @@ const docTemplate = `{
                 }
             }
         },
+        "/metrics/engaged-time": {
+            "get": {
+                "description": "Calculate engaged time (active minutes) and tracked time with engagement rate for a user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "/api/v1/admin/metrics"
+                ],
+                "summary": "Get engaged time metric with tracked time data",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "user_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start time (RFC3339 format)",
+                        "name": "start_time",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "End time (RFC3339 format)",
+                        "name": "end_time",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Specific session ID",
+                        "name": "session_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/entity.EngagedTimeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/wrapper.ErrorWrapper"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/wrapper.ErrorWrapper"
+                        }
+                    }
+                }
+            }
+        },
         "/metrics/tracked-time": {
             "get": {
                 "description": "Calculate tracked time (sum of session durations) for a user",
@@ -1227,20 +1291,6 @@ const docTemplate = `{
                         "type": "string",
                         "description": "User ID",
                         "name": "user_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Start time (RFC3339 format)",
-                        "name": "start_time",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "End time (RFC3339 format)",
-                        "name": "end_time",
                         "in": "query",
                         "required": true
                     },
@@ -1442,6 +1492,59 @@ const docTemplate = `{
                 },
                 "y": {
                     "type": "integer"
+                }
+            }
+        },
+        "entity.EngagedTimeMetric": {
+            "type": "object",
+            "properties": {
+                "active_events": {
+                    "type": "integer"
+                },
+                "active_hours": {
+                    "type": "number"
+                },
+                "active_minutes": {
+                    "type": "integer"
+                },
+                "end_time": {
+                    "type": "string"
+                },
+                "engagement_rate": {
+                    "description": "active_minutes / tracked_minutes * 100",
+                    "type": "number"
+                },
+                "period": {
+                    "type": "string"
+                },
+                "sessions": {
+                    "type": "integer"
+                },
+                "start_time": {
+                    "type": "string"
+                },
+                "tracked_hours": {
+                    "type": "number"
+                },
+                "tracked_minutes": {
+                    "type": "number"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "entity.EngagedTimeResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/entity.EngagedTimeMetric"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
