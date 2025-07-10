@@ -33,7 +33,7 @@ func (r *metricsRepository) GetTrackedTime(ctx context.Context, filter entity.Tr
 			FROM user_behaviors 
 			WHERE user_id = $1 
 				AND timestamp >= $2 
-				AND timestamp <= $3 group by user_id, session_id`
+				AND timestamp <= $3`
 
 	args := []interface{}{filter.UserID, filter.StartTime, filter.EndTime}
 	argIndex := 4
@@ -115,7 +115,7 @@ func (r *metricsRepository) GetTrackedTimeTotal(ctx context.Context, filter enti
 			FROM user_behaviors 
 			WHERE user_id = $1 
 				AND timestamp >= $2 
-				AND timestamp <= $3 group by user_id`
+				AND timestamp <= $3`
 
 	args := []interface{}{filter.UserID, filter.StartTime, filter.EndTime}
 
