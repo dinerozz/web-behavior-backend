@@ -9,15 +9,20 @@ import (
 	"time"
 )
 
-type MetricsRepository struct {
+type UserMetricsRepository interface {
+	GetTrackedTime(ctx context.Context, filter entity.TrackedTimeFilter) (*entity.TrackedTimeMetric, error)
+	GetTrackedTimeTotal(ctx context.Context, filter entity.TrackedTimeFilter) (*entity.TrackedTimeMetric, error)
+}
+
+type metricsRepository struct {
 	db *sqlx.DB
 }
 
-func NewMetricsRepository(db *sqlx.DB) *MetricsRepository {
-	return &MetricsRepository{db: db}
+func NewMetricsRepository(db *sqlx.DB) *metricsRepository {
+	return &metricsRepository{db: db}
 }
 
-func (r *MetricsRepository) GetTrackedTime(ctx context.Context, filter entity.TrackedTimeFilter) (*entity.TrackedTimeMetric, error) {
+func (r *metricsRepository) GetTrackedTime(ctx context.Context, filter entity.TrackedTimeFilter) (*entity.TrackedTimeMetric, error) {
 	query := `
 			SELECT 
 				user_id,
@@ -33,7 +38,6 @@ func (r *MetricsRepository) GetTrackedTime(ctx context.Context, filter entity.Tr
 	args := []interface{}{filter.UserID, filter.StartTime, filter.EndTime}
 	argIndex := 4
 
-	// Если указан конкретный session_id
 	if filter.SessionID != nil {
 		query += fmt.Sprintf(" AND session_id = $%d", argIndex)
 		args = append(args, *filter.SessionID)
@@ -96,6 +100,53 @@ func (r *MetricsRepository) GetTrackedTime(ctx context.Context, filter entity.Tr
 		Sessions:     len(sessions),
 		StartTime:    globalStart,
 		EndTime:      globalEnd,
+		Period:       utils.FormatPeriod(filter.StartTime, filter.EndTime),
+	}, nil
+}
+
+func (r *metricsRepository) GetTrackedTimeTotal(ctx context.Context, filter entity.TrackedTimeFilter) (*entity.TrackedTimeMetric, error) {
+	query := `
+			SELECT 
+				user_id,
+				MIN(timestamp) as period_start,
+				MAX(timestamp) as period_end,
+				EXTRACT(EPOCH FROM (MAX(timestamp) - MIN(timestamp))) / 60 as total_minutes,
+				COUNT(DISTINCT session_id) as sessions_count
+			FROM user_behaviors 
+			WHERE user_id = $1 
+				AND timestamp >= $2 
+				AND timestamp <= $3 group by user_id`
+
+	args := []interface{}{filter.UserID, filter.StartTime, filter.EndTime}
+
+	if filter.SessionID != nil {
+		query += " AND session_id = $4"
+		args = append(args, *filter.SessionID)
+	}
+
+	query += " GROUP BY user_id"
+
+	type result struct {
+		UserID        string    `db:"user_id"`
+		PeriodStart   time.Time `db:"period_start"`
+		PeriodEnd     time.Time `db:"period_end"`
+		TotalMinutes  float64   `db:"total_minutes"`
+		SessionsCount int       `db:"sessions_count"`
+	}
+
+	var res result
+	err := r.db.GetContext(ctx, &res, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get total tracked time: %w", err)
+	}
+
+	return &entity.TrackedTimeMetric{
+		UserID:       res.UserID,
+		TotalMinutes: res.TotalMinutes,
+		TotalHours:   res.TotalMinutes / 60,
+		Sessions:     res.SessionsCount,
+		StartTime:    res.PeriodStart,
+		EndTime:      res.PeriodEnd,
 		Period:       utils.FormatPeriod(filter.StartTime, filter.EndTime),
 	}, nil
 }

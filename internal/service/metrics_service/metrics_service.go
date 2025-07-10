@@ -9,15 +9,10 @@ import (
 )
 
 type MetricsService struct {
-	repo MetricsRepository
+	repo repository.UserMetricsRepository
 }
 
-type MetricsRepository interface {
-	GetTrackedTime(ctx context.Context, filter entity.TrackedTimeFilter) (*entity.TrackedTimeMetric, error)
-	GetTrackedTimeTotal(ctx context.Context, filter entity.TrackedTimeFilter) (*entity.TrackedTimeMetric, error)
-}
-
-func NewMetricsService(repo *repository.MetricsRepository) *MetricsService {
+func NewMetricsService(repo repository.UserMetricsRepository) *MetricsService {
 	return &MetricsService{repo: repo}
 }
 
