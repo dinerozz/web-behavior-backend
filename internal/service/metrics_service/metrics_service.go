@@ -60,13 +60,13 @@ func (s *MetricsService) GetEngagedTime(ctx context.Context, filter entity.Engag
 		return nil, fmt.Errorf("user_id is required")
 	}
 
-	if filter.StartTime.IsZero() || filter.EndTime.IsZero() {
-		return nil, fmt.Errorf("start_time and end_time are required")
-	}
-
-	if filter.EndTime.Before(filter.StartTime) {
-		return nil, fmt.Errorf("end_time must be after start_time")
-	}
+	//if filter.StartTime.IsZero() || filter.EndTime.IsZero() {
+	//	return nil, fmt.Errorf("start_time and end_time are required")
+	//}
+	//
+	//if filter.EndTime.Before(filter.StartTime) {
+	//	return nil, fmt.Errorf("end_time must be after start_time")
+	//}
 
 	if filter.EndTime.Sub(filter.StartTime) > 90*24*time.Hour {
 		return nil, fmt.Errorf("period cannot exceed 90 days")

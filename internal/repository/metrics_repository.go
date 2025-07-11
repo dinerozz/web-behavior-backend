@@ -12,6 +12,17 @@ import (
 	"time"
 )
 
+var ActiveEvents = []string{
+	"pageshow", "click", "focus", "keydown",
+	"scrollend", "pagehide", "visibility_visible",
+}
+
+type queryBuilder struct {
+	args          []interface{}
+	argIndex      int
+	sessionFilter string
+}
+
 type UserMetricsRepository interface {
 	GetTrackedTime(ctx context.Context, filter entity.TrackedTimeFilter) (*entity.TrackedTimeMetric, error)
 	GetTrackedTimeTotal(ctx context.Context, filter entity.TrackedTimeFilter) (*entity.TrackedTimeMetric, error)
@@ -163,26 +174,35 @@ func (r *metricsRepository) GetTrackedTimeTotal(ctx context.Context, filter enti
 	}, nil
 }
 
-func (r *metricsRepository) GetEngagedTime(ctx context.Context, filter entity.EngagedTimeFilter) (*entity.EngagedTimeMetric, error) {
-	activeEvents := []string{"pageshow", "click", "focus", "keydown", "scrollend", "pagehide", "visibility_visible"}
-
-	placeholders := make([]string, len(activeEvents))
-	args := []interface{}{filter.UserID, filter.StartTime, filter.EndTime}
-	argIndex := 4
-
-	for i, event := range activeEvents {
-		placeholders[i] = fmt.Sprintf("$%d", argIndex)
-		args = append(args, event)
-		argIndex++
+func newQueryBuilder(filter entity.EngagedTimeFilter) *queryBuilder {
+	qb := &queryBuilder{
+		args:     []interface{}{filter.UserID, filter.StartTime, filter.EndTime},
+		argIndex: 4,
 	}
 
-	sessionCondition := ""
 	if filter.SessionID != nil {
-		sessionCondition = fmt.Sprintf(" AND session_id = $%d", argIndex)
-		args = append(args, *filter.SessionID)
+		qb.sessionFilter = fmt.Sprintf(" AND session_id = $%d", qb.argIndex)
+		qb.args = append(qb.args, *filter.SessionID)
+		qb.argIndex++
 	}
 
-	query := fmt.Sprintf(`
+	return qb
+}
+
+func (qb *queryBuilder) addActiveEventsPlaceholders() string {
+	placeholders := make([]string, len(ActiveEvents))
+	for i, event := range ActiveEvents {
+		placeholders[i] = fmt.Sprintf("$%d", qb.argIndex)
+		qb.args = append(qb.args, event)
+		qb.argIndex++
+	}
+	return strings.Join(placeholders, ",")
+}
+
+func (qb *queryBuilder) buildQuery() string {
+	eventPlaceholders := qb.addActiveEventsPlaceholders()
+
+	return fmt.Sprintf(`
     WITH time_bounds AS (
         SELECT 
             MIN(timestamp) as actual_start,
@@ -230,7 +250,6 @@ func (r *metricsRepository) GetEngagedTime(ctx context.Context, filter entity.En
             AND ub.timestamp <= tb.actual_end %s
     )
     SELECT 
-        -- Используем FLOOR от tracked_minutes как максимум
         LEAST(COALESCE(ad.raw_active_minutes, 0), FLOOR(COALESCE(tb.total_minutes, 0))::int) as active_minutes,
         COALESCE(ad.active_events_count, 0) as active_events_count,
         COALESCE(ad.sessions_count, 0) as sessions_count,
@@ -242,51 +261,119 @@ func (r *metricsRepository) GetEngagedTime(ctx context.Context, filter entity.En
     FROM time_bounds tb
     FULL OUTER JOIN active_data ad ON true
     FULL OUTER JOIN domains_data dd ON true`,
-		sessionCondition, strings.Join(placeholders, ","), sessionCondition, sessionCondition)
+		qb.sessionFilter, eventPlaceholders, qb.sessionFilter, qb.sessionFilter)
+}
 
-	type result struct {
-		ActiveMinutes      int            `db:"active_minutes"`
-		ActiveEventsCount  int            `db:"active_events_count"`
-		SessionsCount      int            `db:"sessions_count"`
-		PeriodStart        time.Time      `db:"period_start"`
-		PeriodEnd          time.Time      `db:"period_end"`
-		TotalMinutes       float64        `db:"total_minutes"`
-		UniqueDomainsCount int            `db:"unique_domains_count"`
-		DomainsList        pq.StringArray `db:"domains_list"`
+type engagedTimeResult struct {
+	ActiveMinutes      int            `db:"active_minutes"`
+	ActiveEventsCount  int            `db:"active_events_count"`
+	SessionsCount      int            `db:"sessions_count"`
+	PeriodStart        time.Time      `db:"period_start"`
+	PeriodEnd          time.Time      `db:"period_end"`
+	TotalMinutes       float64        `db:"total_minutes"`
+	UniqueDomainsCount int            `db:"unique_domains_count"`
+	DomainsList        pq.StringArray `db:"domains_list"`
+}
+
+// Вычисляет процент вовлеченности
+func calculateEngagementRate(activeMinutes int, totalMinutes float64) float64 {
+	if totalMinutes <= 0 {
+		return 0
 	}
+	return utils.RoundToTwoDecimals((float64(activeMinutes) / totalMinutes) * 100)
+}
 
-	var res result
-	err := r.db.GetContext(ctx, &res, query, args...)
+// Создает финальную метрику из результата запроса
+func (r *metricsRepository) buildEngagedTimeMetric(filter entity.EngagedTimeFilter, result engagedTimeResult) *entity.EngagedTimeMetric {
+	engagementRate := calculateEngagementRate(result.ActiveMinutes, result.TotalMinutes)
+	focusLevel := r.determineFocusLevel(result.UniqueDomainsCount)
+	focusInsight := r.generateFocusInsight(result.UniqueDomainsCount, result.DomainsList)
+
+	return &entity.EngagedTimeMetric{
+		UserID:             filter.UserID,
+		ActiveMinutes:      result.ActiveMinutes,
+		ActiveHours:        utils.RoundToTwoDecimals(float64(result.ActiveMinutes) / 60),
+		ActiveEvents:       result.ActiveEventsCount,
+		Sessions:           result.SessionsCount,
+		TrackedMinutes:     utils.RoundToTwoDecimals(result.TotalMinutes),
+		TrackedHours:       utils.RoundToTwoDecimals(result.TotalMinutes / 60),
+		EngagementRate:     engagementRate,
+		StartTime:          filter.StartTime,
+		EndTime:            filter.EndTime,
+		Period:             utils.FormatPeriod(filter.StartTime, filter.EndTime),
+		UniqueDomainsCount: result.UniqueDomainsCount,
+		DomainsList:        []string(result.DomainsList),
+		FocusLevel:         focusLevel,
+		FocusInsight:       focusInsight,
+	}
+}
+
+func (r *metricsRepository) GetEngagedTime(ctx context.Context, filter entity.EngagedTimeFilter) (*entity.EngagedTimeMetric, error) {
+	qb := newQueryBuilder(filter)
+	query := qb.buildQuery()
+
+	var result engagedTimeResult
+	err := r.db.GetContext(ctx, &result, query, qb.args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get engaged time: %w", err)
 	}
 
-	var engagementRate float64
-	if res.TotalMinutes > 0 {
-		engagementRate = utils.RoundToTwoDecimals((float64(res.ActiveMinutes) / res.TotalMinutes) * 100)
-	}
-
-	focusLevel := r.determineFocusLevel(res.UniqueDomainsCount)
-	focusInsight := r.generateFocusInsight(res.UniqueDomainsCount, res.DomainsList)
-
-	return &entity.EngagedTimeMetric{
-		UserID:             filter.UserID,
-		ActiveMinutes:      res.ActiveMinutes,
-		ActiveHours:        utils.RoundToTwoDecimals(float64(res.ActiveMinutes) / 60),
-		ActiveEvents:       res.ActiveEventsCount,
-		Sessions:           res.SessionsCount,
-		TrackedMinutes:     utils.RoundToTwoDecimals(res.TotalMinutes),
-		TrackedHours:       utils.RoundToTwoDecimals(res.TotalMinutes / 60),
-		EngagementRate:     engagementRate,
-		StartTime:          res.PeriodStart,
-		EndTime:            res.PeriodEnd,
-		Period:             utils.FormatPeriod(res.PeriodStart, res.PeriodEnd),
-		UniqueDomainsCount: res.UniqueDomainsCount,
-		DomainsList:        []string(res.DomainsList),
-		FocusLevel:         focusLevel,
-		FocusInsight:       focusInsight,
-	}, nil
+	return r.buildEngagedTimeMetric(filter, result), nil
 }
+
+const (
+	timeBoundsQuery = `
+    WITH time_bounds AS (
+        SELECT 
+            MIN(timestamp) as actual_start,
+            MAX(timestamp) as actual_end,
+            EXTRACT(EPOCH FROM (MAX(timestamp) - MIN(timestamp))) / 60.0 as total_minutes
+        FROM user_behaviors 
+        WHERE user_id = $1 
+            AND timestamp >= $2 
+            AND timestamp <= $3 %s
+    )`
+
+	activeDataQuery = `
+    active_data AS (
+        SELECT 
+            COUNT(DISTINCT DATE_TRUNC('minute', ub.timestamp)) as raw_active_minutes,
+            COUNT(*) as active_events_count,
+            COUNT(DISTINCT session_id) as sessions_count
+        FROM user_behaviors ub
+        CROSS JOIN time_bounds tb
+        WHERE ub.user_id = $1 
+            AND ub.timestamp >= tb.actual_start 
+            AND ub.timestamp <= tb.actual_end
+            AND ub.event_type IN (%s) %s
+    )`
+
+	domainsDataQuery = `
+    domains_data AS (
+        SELECT 
+            COUNT(DISTINCT 
+                CASE 
+                    WHEN url ~ '^https?://' THEN 
+                        split_part(split_part(url, '://', 2), '/', 1)
+                    ELSE 
+                        split_part(url, '/', 1)
+                END
+            ) as unique_domains_count,
+            array_agg(DISTINCT 
+                CASE 
+                    WHEN url ~ '^https?://' THEN 
+                        split_part(split_part(url, '://', 2), '/', 1)
+                    ELSE 
+                        split_part(url, '/', 1)
+                END
+            ) FILTER (WHERE url IS NOT NULL AND url != '') as domains_list
+        FROM user_behaviors ub
+        CROSS JOIN time_bounds tb
+        WHERE ub.user_id = $1 
+            AND ub.timestamp >= tb.actual_start 
+            AND ub.timestamp <= tb.actual_end %s
+    )`
+)
 
 // determineFocusLevel определяет уровень фокуса на основе количества доменов
 func (r *metricsRepository) determineFocusLevel(domainsCount int) string {
