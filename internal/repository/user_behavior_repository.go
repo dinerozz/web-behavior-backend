@@ -99,7 +99,7 @@ func (r *userBehaviorRepository) GetByFilter(ctx context.Context, filter entity.
 
 	query := `SELECT 
 		id, session_id, event_type, url, user_id, user_name, x, y, key,
-		ts AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' as timestamp,
+		timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' as timestamp,
 		created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' as created_at,
 		updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' as updated_at
 	FROM user_behaviors WHERE 1=1`
