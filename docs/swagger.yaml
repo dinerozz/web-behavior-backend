@@ -78,6 +78,49 @@ definitions:
       sessions:
         type: integer
     type: object
+  entity.DetailedAnalysis:
+    properties:
+      behavior_insights:
+        items:
+          type: string
+        type: array
+      domain_breakdown:
+        $ref: '#/definitions/entity.DomainBreakdown'
+      key_findings:
+        items:
+          type: string
+        type: array
+      productivity_score:
+        $ref: '#/definitions/entity.ProductivityScore'
+    type: object
+  entity.DomainBreakdown:
+    properties:
+      communication:
+        description: Gmail, Telegram, etc.
+        items:
+          type: string
+        type: array
+      development:
+        description: localhost, CodeSandbox, etc.
+        items:
+          type: string
+        type: array
+      distractions:
+        description: YouTube, social, etc.
+        items:
+          type: string
+        type: array
+      research:
+        description: Stack Overflow, docs, etc.
+        items:
+          type: string
+        type: array
+      work_tools:
+        description: GitHub, Jira, etc.
+        items:
+          type: string
+        type: array
+    type: object
   entity.EngagedTimeMetric:
     properties:
       active_events:
@@ -86,6 +129,8 @@ definitions:
         type: number
       active_minutes:
         type: integer
+      analysis:
+        $ref: '#/definitions/entity.DetailedAnalysis'
       deep_work:
         $ref: '#/definitions/entity.DeepWorkData'
       domains_list:
@@ -107,6 +152,10 @@ definitions:
         type: array
       period:
         type: string
+      recommendations:
+        items:
+          type: string
+        type: array
       sessions:
         type: integer
       start_time:
@@ -118,6 +167,8 @@ definitions:
       unique_domains_count:
         type: integer
       user_id:
+        type: string
+      work_pattern:
         type: string
     type: object
   entity.EngagedTimeResponse:
@@ -231,6 +282,24 @@ definitions:
         type: string
       label:
         type: string
+    type: object
+  entity.ProductivityScore:
+    properties:
+      balance:
+        description: work/life domains
+        type: integer
+      efficiency:
+        description: engagement rate
+        type: integer
+      explanation:
+        description: краткое объяснение счета
+        type: string
+      focus:
+        description: на основе deep work
+        type: integer
+      overall:
+        description: 0-100
+        type: integer
     type: object
   entity.RegenerateAPIKeyResponse:
     properties:

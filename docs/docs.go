@@ -1695,6 +1695,69 @@ const docTemplate = `{
                 }
             }
         },
+        "entity.DetailedAnalysis": {
+            "type": "object",
+            "properties": {
+                "behavior_insights": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "domain_breakdown": {
+                    "$ref": "#/definitions/entity.DomainBreakdown"
+                },
+                "key_findings": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "productivity_score": {
+                    "$ref": "#/definitions/entity.ProductivityScore"
+                }
+            }
+        },
+        "entity.DomainBreakdown": {
+            "type": "object",
+            "properties": {
+                "communication": {
+                    "description": "Gmail, Telegram, etc.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "development": {
+                    "description": "localhost, CodeSandbox, etc.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "distractions": {
+                    "description": "YouTube, social, etc.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "research": {
+                    "description": "Stack Overflow, docs, etc.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "work_tools": {
+                    "description": "GitHub, Jira, etc.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "entity.EngagedTimeMetric": {
             "type": "object",
             "properties": {
@@ -1706,6 +1769,9 @@ const docTemplate = `{
                 },
                 "active_minutes": {
                     "type": "integer"
+                },
+                "analysis": {
+                    "$ref": "#/definitions/entity.DetailedAnalysis"
                 },
                 "deep_work": {
                     "$ref": "#/definitions/entity.DeepWorkData"
@@ -1738,6 +1804,12 @@ const docTemplate = `{
                 "period": {
                     "type": "string"
                 },
+                "recommendations": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "sessions": {
                     "type": "integer"
                 },
@@ -1754,6 +1826,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "user_id": {
+                    "type": "string"
+                },
+                "work_pattern": {
                     "type": "string"
                 }
             }
@@ -1922,6 +1997,31 @@ const docTemplate = `{
                 },
                 "label": {
                     "type": "string"
+                }
+            }
+        },
+        "entity.ProductivityScore": {
+            "type": "object",
+            "properties": {
+                "balance": {
+                    "description": "work/life domains",
+                    "type": "integer"
+                },
+                "efficiency": {
+                    "description": "engagement rate",
+                    "type": "integer"
+                },
+                "explanation": {
+                    "description": "краткое объяснение счета",
+                    "type": "string"
+                },
+                "focus": {
+                    "description": "на основе deep work",
+                    "type": "integer"
+                },
+                "overall": {
+                    "description": "0-100",
+                    "type": "integer"
                 }
             }
         },
