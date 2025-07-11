@@ -6,15 +6,17 @@ import (
 	"fmt"
 	"github.com/dinerozz/web-behavior-backend/internal/entity"
 	"github.com/dinerozz/web-behavior-backend/internal/repository"
+	"github.com/dinerozz/web-behavior-backend/internal/service/ai_analytics"
 	"time"
 )
 
 type MetricsService struct {
-	repo repository.UserMetricsRepository
+	repo      repository.UserMetricsRepository
+	aiService *ai_analytics.AIAnalyticsService
 }
 
-func NewMetricsService(repo repository.UserMetricsRepository) *MetricsService {
-	return &MetricsService{repo: repo}
+func NewMetricsService(repo repository.UserMetricsRepository, aiService *ai_analytics.AIAnalyticsService) *MetricsService {
+	return &MetricsService{repo: repo, aiService: aiService}
 }
 
 func (s *MetricsService) GetTrackedTime(ctx context.Context, filter entity.TrackedTimeFilter) (*entity.TrackedTimeMetric, error) {
@@ -76,6 +78,28 @@ func (s *MetricsService) GetEngagedTime(ctx context.Context, filter entity.Engag
 	metric, err := s.repo.GetEngagedTime(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate engaged time: %w", err)
+	}
+
+	if s.aiService != nil {
+		analysis, err := s.aiService.AnalyzeDomainUsage(
+			ctx,
+			metric.UniqueDomainsCount,
+			metric.DomainsList,
+			metric.DeepWork,
+			metric.EngagementRate,
+			metric.TrackedHours,
+		)
+		if err != nil {
+			// Если AI недоступен, используем fallback
+			metric.FocusLevel = s.aiService.DetermineFocusLevelFallback(metric.UniqueDomainsCount)
+		} else {
+			// Используем AI анализ
+			metric.FocusLevel = analysis.FocusLevel
+			metric.FocusInsight = analysis.FocusInsight
+			metric.WorkPattern = analysis.WorkPattern
+			metric.Recommendations = analysis.Recommendations
+			metric.Analysis = analysis.Analysis
+		}
 	}
 
 	return metric, nil

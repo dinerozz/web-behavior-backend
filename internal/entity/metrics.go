@@ -47,6 +47,10 @@ type EngagedTimeMetric struct {
 	FocusInsight       string   `json:"focus_insight" db:"focus_insight"`
 
 	HourlyBreakdown []HourlyData `json:"hourly_breakdown"`
+
+	WorkPattern     string           `json:"work_pattern"`
+	Recommendations []string         `json:"recommendations"`
+	Analysis        DetailedAnalysis `json:"analysis"`
 }
 
 type HourlyData struct {

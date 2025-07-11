@@ -356,8 +356,8 @@ func calculateEngagementRate(activeMinutes int, totalMinutes float64) float64 {
 
 func (r *metricsRepository) buildEngagedTimeMetric(filter entity.EngagedTimeFilter, result engagedTimeResult) *entity.EngagedTimeMetric {
 	engagementRate := calculateEngagementRate(result.ActiveMinutes, result.TotalMinutes)
-	focusLevel := r.determineFocusLevel(result.UniqueDomainsCount)
-	focusInsight := r.generateFocusInsight(result.UniqueDomainsCount, result.DomainsList)
+	//focusLevel := r.determineFocusLevel(result.UniqueDomainsCount)
+	//focusInsight := r.generateFocusInsight(result.UniqueDomainsCount, result.DomainsList)
 
 	// Парсим top domains для deep work
 	var topDomains []entity.DeepWorkDomain
@@ -433,8 +433,10 @@ func (r *metricsRepository) buildEngagedTimeMetric(filter entity.EngagedTimeFilt
 		Period:             utils.FormatPeriod(filter.StartTime, filter.EndTime),
 		UniqueDomainsCount: result.UniqueDomainsCount,
 		DomainsList:        result.DomainsList,
-		FocusLevel:         focusLevel,
-		FocusInsight:       focusInsight,
+		FocusLevel:         "",
+		FocusInsight:       "",
+		WorkPattern:        "",
+		Recommendations:    []string{},
 		DeepWork: entity.DeepWorkData{
 			SessionsCount:  result.DeepSessionsCount,
 			TotalMinutes:   utils.RoundToTwoDecimals(result.TotalDeepMinutes),

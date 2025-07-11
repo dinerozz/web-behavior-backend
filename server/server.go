@@ -11,6 +11,7 @@ import (
 	handler "github.com/dinerozz/web-behavior-backend/internal/handler/user_behavior"
 	userBehaviorHandler "github.com/dinerozz/web-behavior-backend/internal/handler/user_behavior"
 	"github.com/dinerozz/web-behavior-backend/internal/repository"
+	aiAnalyticsService "github.com/dinerozz/web-behavior-backend/internal/service/ai_analytics"
 	extensionUserService "github.com/dinerozz/web-behavior-backend/internal/service/extension_user"
 	metricsService "github.com/dinerozz/web-behavior-backend/internal/service/metrics_service"
 	"github.com/dinerozz/web-behavior-backend/internal/service/user"
@@ -67,7 +68,10 @@ func RunServer(config *config.Config) {
 	userSrv := user.NewUserService(userRepo)
 	userBehaviorService := service.NewUserBehaviorService(userBehaviorRepo)
 	userExtensionService := extensionUserService.NewExtensionUserService(userExtensionRepo)
-	userMetricsService := metricsService.NewMetricsService(userMetricsRepo)
+
+	aiService := aiAnalyticsService.NewAIAnalyticsService("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")
+
+	userMetricsService := metricsService.NewMetricsService(userMetricsRepo, aiService)
 
 	userHandler := userHandler.NewUserHandler(userSrv)
 	userBehaviorHandler := handler.NewUserBehaviorHandler(userBehaviorService)
