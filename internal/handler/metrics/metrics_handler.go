@@ -239,7 +239,7 @@ func (h *MetricsHandler) GetEngagedTime(c *gin.Context) {
 
 // @Summary Get top domains for user (all time)
 // @Description Retrieve top visited domains for a specific user for all time
-// @Tags metrics
+// @Tags         /api/v1/admin/metrics
 // @Accept json
 // @Produce json
 // @Param user_id query string true "User ID"

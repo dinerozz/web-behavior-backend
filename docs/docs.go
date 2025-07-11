@@ -25,7 +25,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "metrics"
+                    "/api/v1/admin/metrics"
                 ],
                 "summary": "Get top domains for user (all time)",
                 "parameters": [

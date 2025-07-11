@@ -371,7 +371,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Get top domains for user (all time)
       tags:
-      - metrics
+      - /api/v1/admin/metrics
   /behaviors:
     get:
       consumes:
