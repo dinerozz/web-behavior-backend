@@ -715,11 +715,19 @@ paths:
         name: userId
         required: true
         type: string
-      - description: 'Limit (default: 50, max: 200)'
+      - description: 'Page number (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Items per page (default: 50, max: 200)'
+        in: query
+        name: per_page
+        type: integer
+      - description: Limit (deprecated, use per_page)
         in: query
         name: limit
         type: integer
-      - description: 'Offset (default: 0)'
+      - description: Offset (deprecated, use page)
         in: query
         name: offset
         type: integer
@@ -736,6 +744,8 @@ paths:
                   items:
                     $ref: '#/definitions/entity.SessionSummary'
                   type: array
+                pagination:
+                  $ref: '#/definitions/entity.PaginationInfo'
               type: object
         "400":
           description: Bad Request

@@ -16,7 +16,7 @@ type UserBehaviorService interface {
 	GetBehaviors(ctx context.Context, filter entity.UserBehaviorFilter) ([]entity.UserBehavior, *entity.PaginationInfo, error)
 	GetStats(ctx context.Context, filter entity.UserBehaviorFilter) (*entity.UserBehaviorStats, error)
 	GetSessionSummary(ctx context.Context, sessionID string) (*entity.SessionSummary, error)
-	GetUserSessions(ctx context.Context, userID string, limit, offset int) ([]entity.SessionSummary, error)
+	GetUserSessions(ctx context.Context, userID string, page, perPage int) ([]entity.SessionSummary, *entity.PaginationInfo, error)
 	DeleteBehavior(ctx context.Context, id uuid.UUID) error
 	ValidateEventType(eventType string) bool
 	ValidateCoordinates(x, y *int, eventType string) error
@@ -199,26 +199,42 @@ func (s *userBehaviorService) GetSessionSummary(ctx context.Context, sessionID s
 	return summary, nil
 }
 
-func (s *userBehaviorService) GetUserSessions(ctx context.Context, userID string, limit, offset int) ([]entity.SessionSummary, error) {
+func (s *userBehaviorService) GetUserSessions(ctx context.Context, userID string, page, perPage int) ([]entity.SessionSummary, *entity.PaginationInfo, error) {
 	if userID == "" {
-		return nil, fmt.Errorf("user ID is required")
+		return nil, nil, fmt.Errorf("user ID is required")
 	}
 
-	if limit <= 0 {
-		limit = 50
+	// Валидация пагинации
+	if page < 1 {
+		page = 1
 	}
-	if limit > 200 {
-		limit = 200
+	if perPage <= 0 {
+		perPage = 50
+	}
+	if perPage > 200 {
+		perPage = 200
 	}
 
-	sessions, err := s.repo.GetUserSessions(ctx, userID, limit, offset)
+	sessions, err := s.repo.GetUserSessions(ctx, userID, page, perPage)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user sessions: %w", err)
+		return nil, nil, fmt.Errorf("failed to get user sessions: %w", err)
 	}
 
-	return sessions, nil
-}
+	total, err := s.repo.CountUserSessions(ctx, userID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to count user sessions: %w", err)
+	}
 
+	totalPages := (total + perPage - 1) / perPage
+	paginationInfo := &entity.PaginationInfo{
+		Page:       page,
+		PerPage:    perPage,
+		Total:      total,
+		TotalPages: totalPages,
+	}
+
+	return sessions, paginationInfo, nil
+}
 func (s *userBehaviorService) DeleteBehavior(ctx context.Context, id uuid.UUID) error {
 	if err := s.repo.Delete(ctx, id); err != nil {
 		return fmt.Errorf("failed to delete behavior: %w", err)

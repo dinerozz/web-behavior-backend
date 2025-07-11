@@ -486,12 +486,14 @@ func (h *UserBehaviorHandler) GetSessionSummary(c *gin.Context) {
 // @Tags         /api/v1/admin/behaviors
 // @Accept       json
 // @Produce      json
-// @Param        userId  path      string  true   "User ID"
-// @Param        limit   query     int     false  "Limit (default: 50, max: 200)"
-// @Param        offset  query     int     false  "Offset (default: 0)"
-// @Success      200     {object}  wrapper.ResponseWrapper{data=[]entity.SessionSummary}
-// @Failure      400     {object}  wrapper.ErrorWrapper
-// @Failure      500     {object}  wrapper.ErrorWrapper
+// @Param        userId   path      string  true   "User ID"
+// @Param        page     query     int     false  "Page number (default: 1)"
+// @Param        per_page query     int     false  "Items per page (default: 50, max: 200)"
+// @Param        limit    query     int     false  "Limit (deprecated, use per_page)"
+// @Param        offset   query     int     false  "Offset (deprecated, use page)"
+// @Success      200      {object}  wrapper.ResponseWrapper{data=[]entity.SessionSummary,pagination=entity.PaginationInfo}
+// @Failure      400      {object}  wrapper.ErrorWrapper
+// @Failure      500      {object}  wrapper.ErrorWrapper
 // @Router       /behaviors/users/{userId}/sessions [get]
 func (h *UserBehaviorHandler) GetUserSessions(c *gin.Context) {
 	userID := c.Param("userId")
@@ -502,32 +504,60 @@ func (h *UserBehaviorHandler) GetUserSessions(c *gin.Context) {
 		return
 	}
 
-	limit := 50
-	offset := 0
+	page := 1
+	perPage := 50
 
-	if limitStr := c.Query("limit"); limitStr != "" {
+	if pageStr := c.Query("page"); pageStr != "" {
 		var err error
-		limit, err = strconv.Atoi(limitStr)
-		if err != nil {
+		page, err = strconv.Atoi(pageStr)
+		if err != nil || page < 1 {
 			c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
-				Message: "Invalid limit value",
+				Message: "Invalid page value",
 			})
 			return
 		}
 	}
 
-	if offsetStr := c.Query("offset"); offsetStr != "" {
+	if perPageStr := c.Query("per_page"); perPageStr != "" {
 		var err error
-		offset, err = strconv.Atoi(offsetStr)
-		if err != nil {
+		perPage, err = strconv.Atoi(perPageStr)
+		if err != nil || perPage < 1 {
 			c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
-				Message: "Invalid offset value",
+				Message: "Invalid per_page value",
 			})
 			return
 		}
 	}
 
-	sessions, err := h.service.GetUserSessions(c.Request.Context(), userID, limit, offset)
+	if page == 1 && perPage == 50 {
+		if limitStr := c.Query("limit"); limitStr != "" {
+			var err error
+			limit, err := strconv.Atoi(limitStr)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
+					Message: "Invalid limit value",
+				})
+				return
+			}
+			perPage = limit
+		}
+
+		if offsetStr := c.Query("offset"); offsetStr != "" {
+			var err error
+			offset, err := strconv.Atoi(offsetStr)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
+					Message: "Invalid offset value",
+				})
+				return
+			}
+			if offset > 0 && perPage > 0 {
+				page = (offset / perPage) + 1
+			}
+		}
+	}
+
+	sessions, paginationInfo, err := h.service.GetUserSessions(c.Request.Context(), userID, page, perPage)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{
 			Message: err.Error(),
@@ -535,10 +565,16 @@ func (h *UserBehaviorHandler) GetUserSessions(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, wrapper.ResponseWrapper{
+	response := wrapper.PaginatedResponseWrapper{
 		Data:    sessions,
 		Success: true,
-	})
+	}
+
+	if paginationInfo != nil {
+		response.Meta = *paginationInfo
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // DeleteBehavior godoc

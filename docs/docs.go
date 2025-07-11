@@ -511,13 +511,25 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "Limit (default: 50, max: 200)",
+                        "description": "Page number (default: 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Items per page (default: 50, max: 200)",
+                        "name": "per_page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit (deprecated, use per_page)",
                         "name": "limit",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "Offset (default: 0)",
+                        "description": "Offset (deprecated, use page)",
                         "name": "offset",
                         "in": "query"
                     }
@@ -538,6 +550,9 @@ const docTemplate = `{
                                             "items": {
                                                 "$ref": "#/definitions/entity.SessionSummary"
                                             }
+                                        },
+                                        "pagination": {
+                                            "$ref": "#/definitions/entity.PaginationInfo"
                                         }
                                     }
                                 }

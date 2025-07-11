@@ -27,6 +27,7 @@ type UserBehaviorRepository interface {
 	GetUserSessions(ctx context.Context, userID string, limit, offset int) ([]entity.SessionSummary, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	CountByFilter(ctx context.Context, filter entity.UserBehaviorFilter) (int, error)
+	CountUserSessions(ctx context.Context, userID string) (int, error)
 }
 
 type userBehaviorRepository struct {
@@ -303,24 +304,26 @@ func (r *userBehaviorRepository) GetSessionSummary(ctx context.Context, sessionI
 	return &summary, nil
 }
 
-func (r *userBehaviorRepository) GetUserSessions(ctx context.Context, userID string, limit, offset int) ([]entity.SessionSummary, error) {
-	query := `
-       SELECT 
-          session_id,
-          user_id,
-          user_name,
-          MIN(timestamp) as start_time,
-          MAX(timestamp) as end_time,
-          EXTRACT(EPOCH FROM (MAX(timestamp) - MIN(timestamp))) as duration,
-          COUNT(*) as events_count,
-          array_agg(DISTINCT url) as urls
-       FROM user_behaviors 
-       WHERE user_id = $1
-       GROUP BY session_id, user_id, user_name
-       ORDER BY start_time DESC
-       LIMIT $2 OFFSET $3`
+func (r *userBehaviorRepository) GetUserSessions(ctx context.Context, userID string, page, perPage int) ([]entity.SessionSummary, error) {
+	offset := (page - 1) * perPage
 
-	rows, err := r.db.QueryContext(ctx, query, userID, limit, offset)
+	query := `
+        SELECT 
+            session_id,
+            user_id,
+            user_name,
+            MIN(timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty') as start_time,
+            MAX(timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty') as end_time,
+            EXTRACT(EPOCH FROM (MAX(timestamp) - MIN(timestamp))) as duration,
+            COUNT(*) as events_count,
+            array_agg(DISTINCT url) as urls
+        FROM user_behaviors 
+        WHERE user_id = $1
+        GROUP BY session_id, user_id, user_name
+        ORDER BY MIN(timestamp) DESC
+        LIMIT $2 OFFSET $3`
+
+	rows, err := r.db.QueryContext(ctx, query, userID, perPage, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -351,13 +354,24 @@ func (r *userBehaviorRepository) GetUserSessions(ctx context.Context, userID str
 			return nil, fmt.Errorf("failed to parse duration: %v", err)
 		}
 		session.Duration = duration
-
 		session.URLs = []string(urls)
 		sessions = append(sessions, session)
 	}
 
 	return sessions, nil
 }
+
+func (r *userBehaviorRepository) CountUserSessions(ctx context.Context, userID string) (int, error) {
+	query := `
+        SELECT COUNT(DISTINCT session_id)
+        FROM user_behaviors 
+        WHERE user_id = $1`
+
+	var count int
+	err := r.db.QueryRowContext(ctx, query, userID).Scan(&count)
+	return count, err
+}
+
 func (r *userBehaviorRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	query := "DELETE FROM user_behaviors WHERE id = $1"
 	result, err := r.db.ExecContext(ctx, query, id)
