@@ -1645,6 +1645,56 @@ const docTemplate = `{
                 }
             }
         },
+        "entity.DeepWorkData": {
+            "type": "object",
+            "properties": {
+                "average_minutes": {
+                    "description": "средняя длительность сессии",
+                    "type": "number"
+                },
+                "deep_work_rate": {
+                    "description": "% от tracked time",
+                    "type": "number"
+                },
+                "longest_minutes": {
+                    "description": "самая длинная сессия",
+                    "type": "number"
+                },
+                "sessions_count": {
+                    "description": "количество deep work сессий",
+                    "type": "integer"
+                },
+                "top_domains": {
+                    "description": "топ доменов для deep work",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/entity.DeepWorkDomain"
+                    }
+                },
+                "total_hours": {
+                    "description": "общее время в часах",
+                    "type": "number"
+                },
+                "total_minutes": {
+                    "description": "общее время в deep work",
+                    "type": "number"
+                }
+            }
+        },
+        "entity.DeepWorkDomain": {
+            "type": "object",
+            "properties": {
+                "domain": {
+                    "type": "string"
+                },
+                "minutes": {
+                    "type": "number"
+                },
+                "sessions": {
+                    "type": "integer"
+                }
+            }
+        },
         "entity.EngagedTimeMetric": {
             "type": "object",
             "properties": {
@@ -1656,6 +1706,9 @@ const docTemplate = `{
                 },
                 "active_minutes": {
                     "type": "integer"
+                },
+                "deep_work": {
+                    "$ref": "#/definitions/entity.DeepWorkData"
                 },
                 "domains_list": {
                     "type": "array",

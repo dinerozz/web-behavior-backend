@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"github.com/dinerozz/web-behavior-backend/internal/entity"
 	"github.com/dinerozz/web-behavior-backend/pkg/utils"
@@ -21,6 +22,23 @@ type queryBuilder struct {
 	args          []interface{}
 	argIndex      int
 	sessionFilter string
+}
+
+type engagedTimeResult struct {
+	ActiveMinutes      int            `db:"active_minutes"`
+	ActiveEventsCount  int            `db:"active_events_count"`
+	SessionsCount      int            `db:"sessions_count"`
+	PeriodStart        time.Time      `db:"period_start"`
+	PeriodEnd          time.Time      `db:"period_end"`
+	TotalMinutes       float64        `db:"total_minutes"`
+	UniqueDomainsCount int            `db:"unique_domains_count"`
+	DomainsList        pq.StringArray `db:"domains_list"`
+
+	DeepSessionsCount int             `db:"deep_sessions_count"`
+	TotalDeepMinutes  float64         `db:"total_deep_minutes"`
+	AvgDeepMinutes    float64         `db:"avg_deep_minutes"`
+	MaxDeepMinutes    float64         `db:"max_deep_minutes"`
+	TopDeepDomains    json.RawMessage `db:"top_deep_domains"`
 }
 
 type UserMetricsRepository interface {
@@ -200,56 +218,14 @@ func (qb *queryBuilder) addActiveEventsPlaceholders() string {
 	return strings.Join(placeholders, ",")
 }
 
-func (qb *queryBuilder) buildQuery() string {
+func (qb *queryBuilder) buildQueryWithDeepWork() string {
 	eventPlaceholders := qb.addActiveEventsPlaceholders()
 
 	return fmt.Sprintf(`
-    WITH time_bounds AS (
-        SELECT 
-            MIN(timestamp) as actual_start,
-            MAX(timestamp) as actual_end,
-            EXTRACT(EPOCH FROM (MAX(timestamp) - MIN(timestamp))) / 60.0 as total_minutes
-        FROM user_behaviors 
-        WHERE user_id = $1 
-            AND timestamp >= $2 
-            AND timestamp <= $3 %s
-    ),
-    active_data AS (
-        SELECT 
-            COUNT(DISTINCT DATE_TRUNC('minute', ub.timestamp)) as raw_active_minutes,
-            COUNT(*) as active_events_count,
-            COUNT(DISTINCT session_id) as sessions_count
-        FROM user_behaviors ub
-        CROSS JOIN time_bounds tb
-        WHERE ub.user_id = $1 
-            AND ub.timestamp >= tb.actual_start 
-            AND ub.timestamp <= tb.actual_end
-            AND ub.event_type IN (%s) %s
-    ),
-    domains_data AS (
-        SELECT 
-            COUNT(DISTINCT 
-                CASE 
-                    WHEN url ~ '^https?://' THEN 
-                        split_part(split_part(url, '://', 2), '/', 1)
-                    ELSE 
-                        split_part(url, '/', 1)
-                END
-            ) as unique_domains_count,
-            array_agg(DISTINCT 
-                CASE 
-                    WHEN url ~ '^https?://' THEN 
-                        split_part(split_part(url, '://', 2), '/', 1)
-                    ELSE 
-                        split_part(url, '/', 1)
-                END
-            ) FILTER (WHERE url IS NOT NULL AND url != '') as domains_list
-        FROM user_behaviors ub
-        CROSS JOIN time_bounds tb
-        WHERE ub.user_id = $1 
-            AND ub.timestamp >= tb.actual_start 
-            AND ub.timestamp <= tb.actual_end %s
-    )
+    %s,
+    %s,
+    %s,
+    %s
     SELECT 
         LEAST(COALESCE(ad.raw_active_minutes, 0), FLOOR(COALESCE(tb.total_minutes, 0))::int) as active_minutes,
         COALESCE(ad.active_events_count, 0) as active_events_count,
@@ -258,22 +234,40 @@ func (qb *queryBuilder) buildQuery() string {
         COALESCE(tb.actual_end, $3::timestamp) as period_end,
         COALESCE(tb.total_minutes, 0) as total_minutes,
         COALESCE(dd.unique_domains_count, 0) as unique_domains_count,
-        COALESCE(dd.domains_list, ARRAY[]::text[]) as domains_list
+        COALESCE(dd.domains_list, ARRAY[]::text[]) as domains_list,
+        
+        -- Deep Work данные
+        COALESCE(dws.deep_sessions_count, 0) as deep_sessions_count,
+        COALESCE(dws.total_deep_minutes, 0) as total_deep_minutes,
+        COALESCE(dws.avg_deep_minutes, 0) as avg_deep_minutes,
+        COALESCE(dws.max_deep_minutes, 0) as max_deep_minutes,
+        
+        -- Top domains для deep work (JSON)
+        COALESCE(
+            json_agg(
+                json_build_object(
+                    'domain', dwd.domain,
+                    'minutes', dwd.domain_minutes,
+                    'sessions', dwd.domain_sessions
+                ) ORDER BY dwd.domain_minutes DESC
+            ) FILTER (WHERE dwd.domain IS NOT NULL),
+            '[]'::json
+        ) as top_deep_domains
+        
     FROM time_bounds tb
     FULL OUTER JOIN active_data ad ON true
-    FULL OUTER JOIN domains_data dd ON true`,
-		qb.sessionFilter, eventPlaceholders, qb.sessionFilter, qb.sessionFilter)
-}
+    FULL OUTER JOIN domains_data dd ON true
+    FULL OUTER JOIN deep_work_stats dws ON true
+    LEFT JOIN deep_work_domains dwd ON true
+    GROUP BY tb.actual_start, tb.actual_end, tb.total_minutes, 
+             ad.raw_active_minutes, ad.active_events_count, ad.sessions_count,
+             dd.unique_domains_count, dd.domains_list,
+             dws.deep_sessions_count, dws.total_deep_minutes, dws.avg_deep_minutes, dws.max_deep_minutes`,
 
-type engagedTimeResult struct {
-	ActiveMinutes      int            `db:"active_minutes"`
-	ActiveEventsCount  int            `db:"active_events_count"`
-	SessionsCount      int            `db:"sessions_count"`
-	PeriodStart        time.Time      `db:"period_start"`
-	PeriodEnd          time.Time      `db:"period_end"`
-	TotalMinutes       float64        `db:"total_minutes"`
-	UniqueDomainsCount int            `db:"unique_domains_count"`
-	DomainsList        pq.StringArray `db:"domains_list"`
+		fmt.Sprintf(timeBoundsQuery, qb.sessionFilter),
+		fmt.Sprintf(activeDataQuery, eventPlaceholders, qb.sessionFilter),
+		fmt.Sprintf(domainsDataQuery, qb.sessionFilter),
+		fmt.Sprintf(deepWorkQuery, eventPlaceholders, qb.sessionFilter))
 }
 
 // Вычисляет процент вовлеченности
@@ -289,6 +283,20 @@ func (r *metricsRepository) buildEngagedTimeMetric(filter entity.EngagedTimeFilt
 	engagementRate := calculateEngagementRate(result.ActiveMinutes, result.TotalMinutes)
 	focusLevel := r.determineFocusLevel(result.UniqueDomainsCount)
 	focusInsight := r.generateFocusInsight(result.UniqueDomainsCount, result.DomainsList)
+
+	// Парсим top domains для deep work
+	var topDomains []entity.DeepWorkDomain
+	if len(result.TopDeepDomains) > 0 && string(result.TopDeepDomains) != "[]" {
+		if err := json.Unmarshal(result.TopDeepDomains, &topDomains); err != nil {
+			topDomains = []entity.DeepWorkDomain{}
+		}
+	}
+
+	// Рассчитываем deep work rate
+	var deepWorkRate float64
+	if result.TotalMinutes > 0 {
+		deepWorkRate = utils.RoundToTwoDecimals((result.TotalDeepMinutes / result.TotalMinutes) * 100)
+	}
 
 	return &entity.EngagedTimeMetric{
 		UserID:             filter.UserID,
@@ -306,12 +314,21 @@ func (r *metricsRepository) buildEngagedTimeMetric(filter entity.EngagedTimeFilt
 		DomainsList:        []string(result.DomainsList),
 		FocusLevel:         focusLevel,
 		FocusInsight:       focusInsight,
+		DeepWork: entity.DeepWorkData{
+			SessionsCount:  result.DeepSessionsCount,
+			TotalMinutes:   utils.RoundToTwoDecimals(result.TotalDeepMinutes),
+			TotalHours:     utils.RoundToTwoDecimals(result.TotalDeepMinutes / 60),
+			AverageMinutes: utils.RoundToTwoDecimals(result.AvgDeepMinutes),
+			LongestMinutes: utils.RoundToTwoDecimals(result.MaxDeepMinutes),
+			DeepWorkRate:   deepWorkRate,
+			TopDomains:     topDomains,
+		},
 	}
 }
 
 func (r *metricsRepository) GetEngagedTime(ctx context.Context, filter entity.EngagedTimeFilter) (*entity.EngagedTimeMetric, error) {
 	qb := newQueryBuilder(filter)
-	query := qb.buildQuery()
+	query := qb.buildQueryWithDeepWork() // Используем новый метод
 
 	var result engagedTimeResult
 	err := r.db.GetContext(ctx, &result, query, qb.args...)
@@ -373,6 +390,97 @@ const (
         WHERE ub.user_id = $1 
             AND ub.timestamp >= tb.actual_start 
             AND ub.timestamp <= tb.actual_end %s
+    )`
+
+	// Добавляем Deep Work запрос
+	deepWorkQuery = `
+    domain_events AS (
+        SELECT 
+            ub.timestamp,
+            CASE 
+                WHEN ub.url ~ '^https?://' THEN 
+                    split_part(split_part(ub.url, '://', 2), '/', 1)
+                ELSE 
+                    split_part(ub.url, '/', 1)
+            END as domain,
+            LAG(ub.timestamp) OVER (
+                PARTITION BY CASE 
+                    WHEN ub.url ~ '^https?://' THEN 
+                        split_part(split_part(ub.url, '://', 2), '/', 1)
+                    ELSE 
+                        split_part(ub.url, '/', 1)
+                END 
+                ORDER BY ub.timestamp
+            ) as prev_timestamp
+        FROM user_behaviors ub
+        CROSS JOIN time_bounds tb
+        WHERE ub.user_id = $1 
+            AND ub.timestamp >= tb.actual_start 
+            AND ub.timestamp <= tb.actual_end
+            AND ub.event_type IN (%s) %s
+    ),
+    session_breaks AS (
+        SELECT 
+            timestamp,
+            domain,
+            CASE 
+                WHEN prev_timestamp IS NULL 
+                    OR EXTRACT(EPOCH FROM (timestamp - prev_timestamp)) > 120 
+                THEN 1 
+                ELSE 0 
+            END as is_new_session
+        FROM domain_events
+    ),
+    session_groups AS (
+        SELECT 
+            domain,
+            timestamp,
+            SUM(is_new_session) OVER (
+                PARTITION BY domain 
+                ORDER BY timestamp 
+                ROWS UNBOUNDED PRECEDING
+            ) as session_group
+        FROM session_breaks
+    ),
+    domain_sessions AS (
+        SELECT 
+            domain,
+            session_group,
+            MIN(timestamp) as session_start,
+            MAX(timestamp) as session_end,
+            EXTRACT(EPOCH FROM (MAX(timestamp) - MIN(timestamp))) / 60.0 as duration_minutes,
+            COUNT(*) as events_count
+        FROM session_groups
+        GROUP BY domain, session_group
+        HAVING COUNT(*) > 1
+    ),
+    deep_work_sessions AS (
+        SELECT 
+            domain,
+            session_start,
+            session_end,
+            duration_minutes,
+            events_count
+        FROM domain_sessions
+        WHERE duration_minutes >= 15
+    ),
+    deep_work_stats AS (
+        SELECT 
+            COUNT(*) as deep_sessions_count,
+            COALESCE(SUM(duration_minutes), 0) as total_deep_minutes,
+            COALESCE(AVG(duration_minutes), 0) as avg_deep_minutes,
+            COALESCE(MAX(duration_minutes), 0) as max_deep_minutes
+        FROM deep_work_sessions
+    ),
+    deep_work_domains AS (
+        SELECT 
+            domain,
+            SUM(duration_minutes) as domain_minutes,
+            COUNT(*) as domain_sessions
+        FROM deep_work_sessions
+        GROUP BY domain
+        ORDER BY domain_minutes DESC
+        LIMIT 3
     )`
 )
 

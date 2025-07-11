@@ -39,6 +39,8 @@ type EngagedTimeMetric struct {
 	EndTime        time.Time `json:"end_time" db:"end_time"`
 	Period         string    `json:"period" db:"period"`
 
+	DeepWork DeepWorkData `json:"deep_work"`
+
 	UniqueDomainsCount int      `json:"unique_domains_count" db:"unique_domains_count"`
 	DomainsList        []string `json:"domains_list" db:"domains_list"`
 	FocusLevel         string   `json:"focus_level" db:"focus_level"` // "high", "medium", "low"
@@ -56,6 +58,22 @@ type EngagedTimeResponse struct {
 	Data    *EngagedTimeMetric `json:"data"`
 	Success bool               `json:"success"`
 	Message string             `json:"message,omitempty"`
+}
+
+type DeepWorkData struct {
+	SessionsCount  int              `json:"sessions_count"`        // количество deep work сессий
+	TotalMinutes   float64          `json:"total_minutes"`         // общее время в deep work
+	TotalHours     float64          `json:"total_hours"`           // общее время в часах
+	AverageMinutes float64          `json:"average_minutes"`       // средняя длительность сессии
+	LongestMinutes float64          `json:"longest_minutes"`       // самая длинная сессия
+	DeepWorkRate   float64          `json:"deep_work_rate"`        // % от tracked time
+	TopDomains     []DeepWorkDomain `json:"top_domains,omitempty"` // топ доменов для deep work
+}
+
+type DeepWorkDomain struct {
+	Domain   string  `json:"domain"`
+	Minutes  float64 `json:"minutes"`
+	Sessions int     `json:"sessions"`
 }
 
 func (e *EngagedTimeMetric) GetFocusLevelDescription() string {
