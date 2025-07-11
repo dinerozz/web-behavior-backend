@@ -273,11 +273,12 @@ func (qb *queryBuilder) buildQueryWithDeepWorkAndHourly() string {
             json_agg(
                 json_build_object(
                     'hour', hour,
+            		'date', date,
                     'engaged_minutes', engaged_minutes,
                     'total_minutes', GREATEST(total_minutes, engaged_minutes),
                     'active_events', active_events,
                     'sessions_count', sessions_count
-                ) ORDER BY hour
+                ) ORDER BY date, hour
             ),
             '[]'::json
         ) FROM hourly_stats) as hourly_breakdown_data
@@ -353,7 +354,6 @@ func calculateEngagementRate(activeMinutes int, totalMinutes float64) float64 {
 	return utils.RoundToTwoDecimals((float64(activeMinutes) / totalMinutes) * 100)
 }
 
-// Создает финальную метрику из результата запроса
 func (r *metricsRepository) buildEngagedTimeMetric(filter entity.EngagedTimeFilter, result engagedTimeResult) *entity.EngagedTimeMetric {
 	engagementRate := calculateEngagementRate(result.ActiveMinutes, result.TotalMinutes)
 	focusLevel := r.determineFocusLevel(result.UniqueDomainsCount)
@@ -372,6 +372,7 @@ func (r *metricsRepository) buildEngagedTimeMetric(filter entity.EngagedTimeFilt
 	if len(result.HourlyBreakdownData) > 0 && string(result.HourlyBreakdownData) != "[]" {
 		type hourlyRaw struct {
 			Hour           int     `json:"hour"`
+			Date           string  `json:"date"`
 			EngagedMinutes int     `json:"engaged_minutes"`
 			TotalMinutes   float64 `json:"total_minutes"`
 			ActiveEvents   int     `json:"active_events"`
@@ -399,6 +400,7 @@ func (r *metricsRepository) buildEngagedTimeMetric(filter entity.EngagedTimeFilt
 
 				hourlyBreakdown[i] = entity.HourlyData{
 					Hour:         raw.Hour,
+					Date:         raw.Date,
 					Timestamp:    utils.FormatHourTimestamp(raw.Hour),
 					EngagedMins:  raw.EngagedMinutes,
 					IdleMins:     idleMins,
@@ -430,7 +432,7 @@ func (r *metricsRepository) buildEngagedTimeMetric(filter entity.EngagedTimeFilt
 		EndTime:            filter.EndTime,
 		Period:             utils.FormatPeriod(filter.StartTime, filter.EndTime),
 		UniqueDomainsCount: result.UniqueDomainsCount,
-		DomainsList:        []string(result.DomainsList),
+		DomainsList:        result.DomainsList,
 		FocusLevel:         focusLevel,
 		FocusInsight:       focusInsight,
 		DeepWork: entity.DeepWorkData{
@@ -594,6 +596,7 @@ const (
     hourly_events AS (
         SELECT 
             EXTRACT(HOUR FROM ub.timestamp) as hour,
+        	DATE(ub.timestamp) as date,
             DATE_TRUNC('hour', ub.timestamp) as hour_bucket,
             ub.timestamp,
             ub.event_type,
@@ -607,6 +610,7 @@ const (
     hourly_stats AS (
         SELECT 
             he.hour,
+			he.date,
             he.hour_bucket,
             COUNT(DISTINCT DATE_TRUNC('minute', he.timestamp)) 
                 FILTER (WHERE he.event_type IN (%s)) as engaged_minutes,
@@ -618,8 +622,8 @@ const (
                 0
             ) as total_minutes
         FROM hourly_events he
-        GROUP BY he.hour, he.hour_bucket
-        ORDER BY he.hour
+        GROUP BY he.hour, he.date, he.hour_bucket
+        ORDER BY he.date, he.hour
     )`
 )
 

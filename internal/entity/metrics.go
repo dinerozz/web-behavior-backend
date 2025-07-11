@@ -51,6 +51,7 @@ type EngagedTimeMetric struct {
 
 type HourlyData struct {
 	Hour         int     `json:"hour"`         // час (0-23)
+	Date         string  `json:"date"`         // "2025-07-10"
 	Timestamp    string  `json:"timestamp"`    // "8:00 AM", "9:00 AM"
 	EngagedMins  int     `json:"engaged_mins"` // активные минуты в этом часе
 	IdleMins     int     `json:"idle_mins"`    // неактивные минуты в этом часе

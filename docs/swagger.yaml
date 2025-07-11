@@ -176,6 +176,9 @@ definitions:
     type: object
   entity.HourlyData:
     properties:
+      date:
+        description: '"2025-07-10"'
+        type: string
       engaged_mins:
         description: активные минуты в этом часе
         type: integer

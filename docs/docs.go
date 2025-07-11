@@ -1844,6 +1844,10 @@ const docTemplate = `{
         "entity.HourlyData": {
             "type": "object",
             "properties": {
+                "date": {
+                    "description": "\"2025-07-10\"",
+                    "type": "string"
+                },
                 "engaged_mins": {
                     "description": "активные минуты в этом часе",
                     "type": "integer"
