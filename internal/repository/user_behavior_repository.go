@@ -97,7 +97,12 @@ func (r *userBehaviorRepository) GetByID(ctx context.Context, id uuid.UUID) (*en
 func (r *userBehaviorRepository) GetByFilter(ctx context.Context, filter entity.UserBehaviorFilter) ([]entity.UserBehavior, error) {
 	var behaviors []entity.UserBehavior
 
-	query := "SELECT * FROM user_behaviors WHERE 1=1"
+	query := `SELECT 
+		user_id, session_id, event_type, url, metadata,
+		timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' as timestamp,
+		created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' as created_at,
+		updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' as updated_at
+	FROM user_behaviors WHERE 1=1`
 	args := []interface{}{}
 	argIndex := 1
 
@@ -211,17 +216,14 @@ func (r *userBehaviorRepository) GetStats(ctx context.Context, filter entity.Use
 		EventsByType: make(map[string]int64),
 	}
 
-	// Базовые условия для всех запросов
 	whereClause, args := r.buildWhereClause(filter)
 
-	// Общее количество событий
 	totalQuery := "SELECT COUNT(*) FROM user_behaviors" + whereClause
 	err := r.db.GetContext(ctx, &stats.TotalEvents, totalQuery, args...)
 	if err != nil {
 		return nil, err
 	}
 
-	// Уникальные пользователи
 	uniqueUsersWhereClause, uniqueUsersArgs := r.buildWhereClauseWithExtra(filter, "user_id IS NOT NULL")
 	uniqueUsersQuery := "SELECT COUNT(DISTINCT user_id) FROM user_behaviors" + uniqueUsersWhereClause
 	err = r.db.GetContext(ctx, &stats.UniqueUsers, uniqueUsersQuery, uniqueUsersArgs...)
@@ -229,14 +231,12 @@ func (r *userBehaviorRepository) GetStats(ctx context.Context, filter entity.Use
 		return nil, err
 	}
 
-	// Уникальные сессии
 	uniqueSessionsQuery := "SELECT COUNT(DISTINCT session_id) FROM user_behaviors" + whereClause
 	err = r.db.GetContext(ctx, &stats.UniqueSessions, uniqueSessionsQuery, args...)
 	if err != nil {
 		return nil, err
 	}
 
-	// События по типам
 	eventTypesQuery := "SELECT event_type, COUNT(*) FROM user_behaviors" + whereClause + " GROUP BY event_type"
 	rows, err := r.db.QueryContext(ctx, eventTypesQuery, args...)
 	if err != nil {
@@ -253,7 +253,6 @@ func (r *userBehaviorRepository) GetStats(ctx context.Context, filter entity.Use
 		stats.EventsByType[eventType] = count
 	}
 
-	// Популярные URL
 	urlsQuery := "SELECT url, COUNT(*) as count FROM user_behaviors" + whereClause + " GROUP BY url ORDER BY count DESC LIMIT 10"
 	err = r.db.SelectContext(ctx, &stats.PopularURLs, urlsQuery, args...)
 	if err != nil {
@@ -430,7 +429,6 @@ func (r *userBehaviorRepository) buildWhereClauseWithExtra(filter entity.UserBeh
 	var args []interface{}
 	argIndex := 1
 
-	// Основные условия из фильтра
 	if filter.UserID != nil {
 		conditions = append(conditions, fmt.Sprintf("user_id = $%d", argIndex))
 		args = append(args, *filter.UserID)
@@ -467,7 +465,6 @@ func (r *userBehaviorRepository) buildWhereClauseWithExtra(filter entity.UserBeh
 		argIndex++
 	}
 
-	// Добавляем дополнительные условия
 	conditions = append(conditions, extraConditions...)
 
 	if len(conditions) == 0 {
@@ -477,7 +474,6 @@ func (r *userBehaviorRepository) buildWhereClauseWithExtra(filter entity.UserBeh
 	return " WHERE " + strings.Join(conditions, " AND "), args
 }
 
-// StringSlice для работы с PostgreSQL массивами
 type StringSlice []string
 
 func (s *StringSlice) Scan(value interface{}) error {
@@ -491,7 +487,6 @@ func (s *StringSlice) Scan(value interface{}) error {
 		return fmt.Errorf("cannot scan %T into StringSlice", value)
 	}
 
-	// Обработка PostgreSQL array формата {item1,item2,item3}
 	str = strings.Trim(str, "{}")
 	if str == "" {
 		*s = []string{}
