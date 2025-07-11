@@ -39,8 +39,8 @@ func NewUserBehaviorRepository(db *sqlx.DB) UserBehaviorRepository {
 
 func (r *userBehaviorRepository) Create(ctx context.Context, behavior *entity.UserBehavior) error {
 	behavior.ID = uuid2.UUID(uuid.New())
-	behavior.CreatedAt = time.Now()
-	behavior.UpdatedAt = time.Now()
+	behavior.CreatedAt = time.Now().UTC()
+	behavior.UpdatedAt = time.Now().UTC()
 
 	query := `
 		INSERT INTO user_behaviors (id, session_id, timestamp, event_type, url, user_id, user_name, x, y, key, created_at, updated_at)
@@ -67,8 +67,8 @@ func (r *userBehaviorRepository) BatchCreate(ctx context.Context, behaviors []en
 
 	for i := range behaviors {
 		behaviors[i].ID = uuid2.UUID(uuid.New())
-		behaviors[i].CreatedAt = time.Now()
-		behaviors[i].UpdatedAt = time.Now()
+		behaviors[i].CreatedAt = time.Now().UTC()
+		behaviors[i].UpdatedAt = time.Now().UTC()
 	}
 
 	_, err = tx.NamedExecContext(ctx, query, behaviors)
@@ -99,7 +99,7 @@ func (r *userBehaviorRepository) GetByFilter(ctx context.Context, filter entity.
 
 	query := `SELECT 
 		id, session_id, event_type, url, user_id, user_name, x, y, key,
-		timestamp AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' as timestamp,
+		ts AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' as timestamp,
 		created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' as created_at,
 		updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' as updated_at
 	FROM user_behaviors WHERE 1=1`
