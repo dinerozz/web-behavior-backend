@@ -27,6 +27,7 @@ type UserMetricsRepository interface {
 	GetTrackedTime(ctx context.Context, filter entity.TrackedTimeFilter) (*entity.TrackedTimeMetric, error)
 	GetTrackedTimeTotal(ctx context.Context, filter entity.TrackedTimeFilter) (*entity.TrackedTimeMetric, error)
 	GetEngagedTime(ctx context.Context, filter entity.EngagedTimeFilter) (*entity.EngagedTimeMetric, error)
+	GetTopDomains(ctx context.Context, filter entity.TopDomainsFilter) (*entity.TopDomainsResponse, error)
 }
 
 type metricsRepository struct {
@@ -401,4 +402,120 @@ func (r *metricsRepository) generateFocusInsight(domainsCount int, domains []str
 	default:
 		return fmt.Sprintf("Зафиксировано %d уникальных сайтов - очень высокий уровень переключений между контекстами. Рекомендуется проверить фокус задач и возможную декомпозицию работы.", domainsCount)
 	}
+}
+
+func (r *metricsRepository) GetTopDomains(ctx context.Context, filter entity.TopDomainsFilter) (*entity.TopDomainsResponse, error) {
+	limit := filter.Limit
+	if limit <= 0 || limit > 50 {
+		limit = 10 // По умолчанию показываем топ 10
+	}
+
+	sessionCondition := ""
+	args := []interface{}{filter.UserID, limit}
+
+	if filter.SessionID != nil {
+		sessionCondition = " AND session_id = $3"
+		args = append(args, *filter.SessionID)
+	}
+
+	query := fmt.Sprintf(`
+		WITH domain_stats AS (
+			SELECT 
+				CASE 
+					WHEN url ~ '^https?://' THEN 
+						split_part(split_part(url, '://', 2), '/', 1)
+					ELSE 
+						split_part(url, '/', 1)
+				END as domain,
+				COUNT(*) as events_count,
+				COUNT(DISTINCT DATE_TRUNC('minute', timestamp)) as active_minutes,
+				MIN(timestamp) as first_visit,
+				MAX(timestamp) as last_visit
+			FROM user_behaviors 
+			WHERE user_id = $1 
+				AND url IS NOT NULL 
+				AND url != '' %s
+			GROUP BY domain
+		),
+		total_stats AS (
+			SELECT 
+				COUNT(DISTINCT domain) as total_domains,
+				SUM(events_count) as total_events
+			FROM domain_stats
+		)
+		SELECT 
+			ds.domain,
+			ds.events_count,
+			ds.active_minutes,
+			ROUND((ds.events_count::numeric / ts.total_events::numeric * 100), 2) as percentage,
+			ds.first_visit,
+			ds.last_visit,
+			ts.total_domains,
+			ts.total_events
+		FROM domain_stats ds
+		CROSS JOIN total_stats ts
+		ORDER BY ds.events_count DESC, ds.active_minutes DESC
+		LIMIT $2`, sessionCondition)
+
+	type queryResult struct {
+		Domain        string    `db:"domain"`
+		EventsCount   int       `db:"events_count"`
+		ActiveMinutes int       `db:"active_minutes"`
+		Percentage    float64   `db:"percentage"`
+		FirstVisit    time.Time `db:"first_visit"`
+		LastVisit     time.Time `db:"last_visit"`
+		TotalDomains  int       `db:"total_domains"`
+		TotalEvents   int       `db:"total_events"`
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get top domains: %w", err)
+	}
+	defer rows.Close()
+
+	var domains []entity.DomainStats
+	var totalDomains, totalEvents int
+
+	for rows.Next() {
+		var result queryResult
+		err := rows.Scan(
+			&result.Domain,
+			&result.EventsCount,
+			&result.ActiveMinutes,
+			&result.Percentage,
+			&result.FirstVisit,
+			&result.LastVisit,
+			&result.TotalDomains,
+			&result.TotalEvents,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan domain stats: %w", err)
+		}
+
+		domains = append(domains, entity.DomainStats{
+			Domain:        result.Domain,
+			EventsCount:   result.EventsCount,
+			ActiveMinutes: result.ActiveMinutes,
+			Percentage:    result.Percentage,
+			FirstVisit:    result.FirstVisit,
+			LastVisit:     result.LastVisit,
+		})
+
+		if totalDomains == 0 {
+			totalDomains = result.TotalDomains
+			totalEvents = result.TotalEvents
+		}
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating domain stats: %w", err)
+	}
+
+	return &entity.TopDomainsResponse{
+		UserID:       filter.UserID,
+		TotalDomains: totalDomains,
+		TotalEvents:  totalEvents,
+		Domains:      domains,
+	}, nil
 }

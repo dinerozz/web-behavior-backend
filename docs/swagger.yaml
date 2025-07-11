@@ -335,6 +335,43 @@ definitions:
 info:
   contact: {}
 paths:
+  /api/v1/admin/metrics/top-domains:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve top visited domains for a specific user for all time
+      parameters:
+      - description: User ID
+        in: query
+        name: user_id
+        required: true
+        type: string
+      - description: Number of top domains to return (max 50, default 10)
+        in: query
+        name: limit
+        type: integer
+      - description: Optional session ID filter
+        in: query
+        name: session_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/wrapper.SuccessWrapper'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get top domains for user (all time)
+      tags:
+      - metrics
   /behaviors:
     get:
       consumes:

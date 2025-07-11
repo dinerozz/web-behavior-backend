@@ -203,6 +203,7 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 		privateRoutes.GET("/metrics/tracked-time", routerHandler.userMetricsHandler.GetTrackedTime)
 		privateRoutes.GET("/metrics/tracked-time-total", routerHandler.userMetricsHandler.GetTrackedTimeTotal)
 		privateRoutes.GET("/metrics/engaged-time", routerHandler.userMetricsHandler.GetEngagedTime)
+		privateRoutes.GET("/metrics/top-domains", routerHandler.userMetricsHandler.GetTopDomains)
 
 		privateRoutes.DELETE("/behaviors/:id", routerHandler.userBehaviorHandler.DeleteBehavior)
 

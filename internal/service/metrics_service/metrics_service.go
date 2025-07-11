@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/dinerozz/web-behavior-backend/internal/entity"
 	"github.com/dinerozz/web-behavior-backend/internal/repository"
@@ -78,4 +79,12 @@ func (s *MetricsService) GetEngagedTime(ctx context.Context, filter entity.Engag
 	}
 
 	return metric, nil
+}
+
+func (s *MetricsService) GetTopDomains(ctx context.Context, filter entity.TopDomainsFilter) (*entity.TopDomainsResponse, error) {
+	if filter.UserID == "" {
+		return nil, errors.New("user_id is required")
+	}
+
+	return s.repo.GetTopDomains(ctx, filter)
 }

@@ -2,10 +2,12 @@ package metrics
 
 import (
 	"context"
+	"fmt"
 	"github.com/dinerozz/web-behavior-backend/internal/entity"
 	"github.com/dinerozz/web-behavior-backend/internal/model/response/wrapper"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -17,6 +19,7 @@ type MetricsService interface {
 	GetTrackedTime(ctx context.Context, filter entity.TrackedTimeFilter) (*entity.TrackedTimeMetric, error)
 	GetTrackedTimeTotal(ctx context.Context, filter entity.TrackedTimeFilter) (*entity.TrackedTimeMetric, error)
 	GetEngagedTime(ctx context.Context, filter entity.EngagedTimeFilter) (*entity.EngagedTimeMetric, error)
+	GetTopDomains(ctx context.Context, filter entity.TopDomainsFilter) (*entity.TopDomainsResponse, error)
 }
 
 func NewMetricsHandler(service MetricsService) *MetricsHandler {
@@ -230,6 +233,65 @@ func (h *MetricsHandler) GetEngagedTime(c *gin.Context) {
 
 	c.JSON(http.StatusOK, entity.EngagedTimeResponse{
 		Data:    metric,
+		Success: true,
+	})
+}
+
+// @Summary Get top domains for user (all time)
+// @Description Retrieve top visited domains for a specific user for all time
+// @Tags metrics
+// @Accept json
+// @Produce json
+// @Param user_id query string true "User ID"
+// @Param limit query int false "Number of top domains to return (max 50, default 10)"
+// @Param session_id query string false "Optional session ID filter"
+// @Success 200 {object} wrapper.SuccessWrapper
+// @Failure 400 {object} wrapper.ErrorWrapper
+// @Failure 500 {object} wrapper.ErrorWrapper
+// @Router /api/v1/admin/metrics/top-domains [get]
+func (h *MetricsHandler) GetTopDomains(c *gin.Context) {
+	var filter entity.TopDomainsFilter
+
+	// Парсинг обязательных параметров
+	filter.UserID = c.Query("user_id")
+	if filter.UserID == "" {
+		c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
+			Message: "user_id is required",
+			Success: false,
+		})
+		return
+	}
+
+	// Парсинг опциональных параметров
+	if limitStr := c.Query("limit"); limitStr != "" {
+		limit, err := strconv.Atoi(limitStr)
+		if err != nil || limit <= 0 {
+			c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
+				Message: "limit must be a positive integer",
+				Success: false,
+			})
+			return
+		}
+		filter.Limit = limit
+	}
+
+	if sessionID := c.Query("session_id"); sessionID != "" {
+		filter.SessionID = &sessionID
+	}
+
+	// Получение данных
+	result, err := h.service.GetTopDomains(c.Request.Context(), filter)
+	if err != nil {
+		fmt.Println("Failed to get top domains", "error", err)
+		c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{
+			Message: "Failed to retrieve top domains",
+			Success: false,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, wrapper.ResponseWrapper{
+		Data:    result,
 		Success: true,
 	})
 }
