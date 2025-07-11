@@ -1729,6 +1729,12 @@ const docTemplate = `{
                     "description": "\"high\", \"medium\", \"low\"",
                     "type": "string"
                 },
+                "hourly_breakdown": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/entity.HourlyData"
+                    }
+                },
                 "period": {
                     "type": "string"
                 },
@@ -1831,6 +1837,43 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "usersUsedToday": {
+                    "type": "integer"
+                }
+            }
+        },
+        "entity.HourlyData": {
+            "type": "object",
+            "properties": {
+                "engaged_mins": {
+                    "description": "активные минуты в этом часе",
+                    "type": "integer"
+                },
+                "events": {
+                    "description": "количество событий",
+                    "type": "integer"
+                },
+                "hour": {
+                    "description": "час (0-23)",
+                    "type": "integer"
+                },
+                "idle_mins": {
+                    "description": "неактивные минуты в этом часе",
+                    "type": "integer"
+                },
+                "productivity": {
+                    "description": "engaged_mins / total_mins * 100",
+                    "type": "number"
+                },
+                "sessions": {
+                    "description": "количество сессий",
+                    "type": "integer"
+                },
+                "timestamp": {
+                    "description": "\"8:00 AM\", \"9:00 AM\"",
+                    "type": "string"
+                },
+                "total_mins": {
+                    "description": "общее время в этом часе",
                     "type": "integer"
                 }
             }

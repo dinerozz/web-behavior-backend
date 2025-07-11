@@ -39,6 +39,8 @@ type engagedTimeResult struct {
 	AvgDeepMinutes    float64         `db:"avg_deep_minutes"`
 	MaxDeepMinutes    float64         `db:"max_deep_minutes"`
 	TopDeepDomains    json.RawMessage `db:"top_deep_domains"`
+
+	HourlyBreakdownData json.RawMessage `db:"hourly_breakdown_data"`
 }
 
 type UserMetricsRepository interface {
@@ -218,6 +220,79 @@ func (qb *queryBuilder) addActiveEventsPlaceholders() string {
 	return strings.Join(placeholders, ",")
 }
 
+func (qb *queryBuilder) buildQueryWithDeepWorkAndHourly() string {
+	eventPlaceholders := qb.addActiveEventsPlaceholders()
+	hourlyEventPlaceholders1 := qb.addActiveEventsPlaceholders()
+	hourlyEventPlaceholders2 := qb.addActiveEventsPlaceholders()
+
+	return fmt.Sprintf(`
+    %s,
+    %s,
+    %s,
+    %s,
+    %s
+    SELECT 
+        LEAST(COALESCE(ad.raw_active_minutes, 0), FLOOR(COALESCE(tb.total_minutes, 0))::int) as active_minutes,
+        COALESCE(ad.active_events_count, 0) as active_events_count,
+        COALESCE(ad.sessions_count, 0) as sessions_count,
+        COALESCE(tb.actual_start, $2::timestamp) as period_start,
+        COALESCE(tb.actual_end, $3::timestamp) as period_end,
+        COALESCE(tb.total_minutes, 0) as total_minutes,
+        COALESCE(dd.unique_domains_count, 0) as unique_domains_count,
+        COALESCE(dd.domains_list, ARRAY[]::text[]) as domains_list,
+        
+        -- Deep Work данные (используем подзапрос для stats)
+        (SELECT COALESCE(COUNT(*), 0) FROM deep_work_sessions) as deep_sessions_count,
+        (SELECT COALESCE(SUM(duration_minutes), 0) FROM deep_work_sessions) as total_deep_minutes,
+        (SELECT COALESCE(AVG(duration_minutes), 0) FROM deep_work_sessions) as avg_deep_minutes,
+        (SELECT COALESCE(MAX(duration_minutes), 0) FROM deep_work_sessions) as max_deep_minutes,
+        
+        -- Top domains для deep work (подзапрос)
+        (SELECT COALESCE(
+            json_agg(
+                json_build_object(
+                    'domain', domain,
+                    'minutes', domain_minutes,
+                    'sessions', domain_sessions
+                ) ORDER BY domain_minutes DESC
+            ),
+            '[]'::json
+        ) FROM (
+            SELECT 
+                domain,
+                SUM(duration_minutes) as domain_minutes,
+                COUNT(*) as domain_sessions
+            FROM deep_work_sessions
+            GROUP BY domain
+            ORDER BY domain_minutes DESC
+            LIMIT 3
+        ) top_domains_subquery) as top_deep_domains,
+        
+        -- Hourly breakdown (подзапрос)
+        (SELECT COALESCE(
+            json_agg(
+                json_build_object(
+                    'hour', hour,
+                    'engaged_minutes', engaged_minutes,
+                    'total_minutes', GREATEST(total_minutes, engaged_minutes),
+                    'active_events', active_events,
+                    'sessions_count', sessions_count
+                ) ORDER BY hour
+            ),
+            '[]'::json
+        ) FROM hourly_stats) as hourly_breakdown_data
+        
+    FROM time_bounds tb
+    FULL OUTER JOIN active_data ad ON true
+    FULL OUTER JOIN domains_data dd ON true`,
+
+		fmt.Sprintf(timeBoundsQuery, qb.sessionFilter),
+		fmt.Sprintf(activeDataQuery, eventPlaceholders, qb.sessionFilter),
+		fmt.Sprintf(domainsDataQuery, qb.sessionFilter),
+		fmt.Sprintf(deepWorkQuery, eventPlaceholders, qb.sessionFilter),
+		fmt.Sprintf(hourlyBreakdownQuery, qb.sessionFilter, hourlyEventPlaceholders1, hourlyEventPlaceholders2))
+}
+
 func (qb *queryBuilder) buildQueryWithDeepWork() string {
 	eventPlaceholders := qb.addActiveEventsPlaceholders()
 
@@ -292,6 +367,50 @@ func (r *metricsRepository) buildEngagedTimeMetric(filter entity.EngagedTimeFilt
 		}
 	}
 
+	// Парсим hourly breakdown
+	var hourlyBreakdown []entity.HourlyData
+	if len(result.HourlyBreakdownData) > 0 && string(result.HourlyBreakdownData) != "[]" {
+		type hourlyRaw struct {
+			Hour           int     `json:"hour"`
+			EngagedMinutes int     `json:"engaged_minutes"`
+			TotalMinutes   float64 `json:"total_minutes"`
+			ActiveEvents   int     `json:"active_events"`
+			SessionsCount  int     `json:"sessions_count"`
+		}
+
+		var rawData []hourlyRaw
+		if err := json.Unmarshal(result.HourlyBreakdownData, &rawData); err == nil {
+			hourlyBreakdown = make([]entity.HourlyData, len(rawData))
+			for i, raw := range rawData {
+				totalMins := int(raw.TotalMinutes)
+				if totalMins < raw.EngagedMinutes {
+					totalMins = raw.EngagedMinutes // минимум = engaged minutes
+				}
+
+				idleMins := totalMins - raw.EngagedMinutes
+				if idleMins < 0 {
+					idleMins = 0
+				}
+
+				var productivity float64
+				if totalMins > 0 {
+					productivity = utils.RoundToTwoDecimals((float64(raw.EngagedMinutes) / float64(totalMins)) * 100)
+				}
+
+				hourlyBreakdown[i] = entity.HourlyData{
+					Hour:         raw.Hour,
+					Timestamp:    utils.FormatHourTimestamp(raw.Hour),
+					EngagedMins:  raw.EngagedMinutes,
+					IdleMins:     idleMins,
+					TotalMins:    totalMins,
+					Events:       raw.ActiveEvents,
+					Sessions:     raw.SessionsCount,
+					Productivity: productivity,
+				}
+			}
+		}
+	}
+
 	// Рассчитываем deep work rate
 	var deepWorkRate float64
 	if result.TotalMinutes > 0 {
@@ -323,20 +442,8 @@ func (r *metricsRepository) buildEngagedTimeMetric(filter entity.EngagedTimeFilt
 			DeepWorkRate:   deepWorkRate,
 			TopDomains:     topDomains,
 		},
+		HourlyBreakdown: hourlyBreakdown,
 	}
-}
-
-func (r *metricsRepository) GetEngagedTime(ctx context.Context, filter entity.EngagedTimeFilter) (*entity.EngagedTimeMetric, error) {
-	qb := newQueryBuilder(filter)
-	query := qb.buildQueryWithDeepWork() // Используем новый метод
-
-	var result engagedTimeResult
-	err := r.db.GetContext(ctx, &result, query, qb.args...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get engaged time: %w", err)
-	}
-
-	return r.buildEngagedTimeMetric(filter, result), nil
 }
 
 const (
@@ -392,7 +499,7 @@ const (
             AND ub.timestamp <= tb.actual_end %s
     )`
 
-	// Добавляем Deep Work запрос
+	// Убираем лишнюю запятую в конце
 	deepWorkQuery = `
     domain_events AS (
         SELECT 
@@ -482,7 +589,52 @@ const (
         ORDER BY domain_minutes DESC
         LIMIT 3
     )`
+
+	hourlyBreakdownQuery = `
+    hourly_events AS (
+        SELECT 
+            EXTRACT(HOUR FROM ub.timestamp) as hour,
+            DATE_TRUNC('hour', ub.timestamp) as hour_bucket,
+            ub.timestamp,
+            ub.event_type,
+            ub.session_id
+        FROM user_behaviors ub
+        CROSS JOIN time_bounds tb
+        WHERE ub.user_id = $1 
+            AND ub.timestamp >= tb.actual_start 
+            AND ub.timestamp <= tb.actual_end %s
+    ),
+    hourly_stats AS (
+        SELECT 
+            he.hour,
+            he.hour_bucket,
+            COUNT(DISTINCT DATE_TRUNC('minute', he.timestamp)) 
+                FILTER (WHERE he.event_type IN (%s)) as engaged_minutes,
+            COUNT(*) FILTER (WHERE he.event_type IN (%s)) as active_events,
+            COUNT(DISTINCT he.session_id) as sessions_count,
+            -- Вычисляем общее время в часе (от первого до последнего события)
+            COALESCE(
+                EXTRACT(EPOCH FROM (MAX(he.timestamp) - MIN(he.timestamp))) / 60.0,
+                0
+            ) as total_minutes
+        FROM hourly_events he
+        GROUP BY he.hour, he.hour_bucket
+        ORDER BY he.hour
+    )`
 )
+
+func (r *metricsRepository) GetEngagedTime(ctx context.Context, filter entity.EngagedTimeFilter) (*entity.EngagedTimeMetric, error) {
+	qb := newQueryBuilder(filter)
+	query := qb.buildQueryWithDeepWorkAndHourly()
+
+	var result engagedTimeResult
+	err := r.db.GetContext(ctx, &result, query, qb.args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get engaged time: %w", err)
+	}
+
+	return r.buildEngagedTimeMetric(filter, result), nil
+}
 
 // determineFocusLevel определяет уровень фокуса на основе количества доменов
 func (r *metricsRepository) determineFocusLevel(domainsCount int) string {

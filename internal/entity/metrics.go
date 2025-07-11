@@ -45,6 +45,19 @@ type EngagedTimeMetric struct {
 	DomainsList        []string `json:"domains_list" db:"domains_list"`
 	FocusLevel         string   `json:"focus_level" db:"focus_level"` // "high", "medium", "low"
 	FocusInsight       string   `json:"focus_insight" db:"focus_insight"`
+
+	HourlyBreakdown []HourlyData `json:"hourly_breakdown"`
+}
+
+type HourlyData struct {
+	Hour         int     `json:"hour"`         // час (0-23)
+	Timestamp    string  `json:"timestamp"`    // "8:00 AM", "9:00 AM"
+	EngagedMins  int     `json:"engaged_mins"` // активные минуты в этом часе
+	IdleMins     int     `json:"idle_mins"`    // неактивные минуты в этом часе
+	TotalMins    int     `json:"total_mins"`   // общее время в этом часе
+	Events       int     `json:"events"`       // количество событий
+	Sessions     int     `json:"sessions"`     // количество сессий
+	Productivity float64 `json:"productivity"` // engaged_mins / total_mins * 100
 }
 
 type EngagedTimeFilter struct {

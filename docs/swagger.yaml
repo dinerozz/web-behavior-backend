@@ -101,6 +101,10 @@ definitions:
       focus_level:
         description: '"high", "medium", "low"'
         type: string
+      hourly_breakdown:
+        items:
+          $ref: '#/definitions/entity.HourlyData'
+        type: array
       period:
         type: string
       sessions:
@@ -168,6 +172,33 @@ definitions:
       usersUsedThisWeek:
         type: integer
       usersUsedToday:
+        type: integer
+    type: object
+  entity.HourlyData:
+    properties:
+      engaged_mins:
+        description: активные минуты в этом часе
+        type: integer
+      events:
+        description: количество событий
+        type: integer
+      hour:
+        description: час (0-23)
+        type: integer
+      idle_mins:
+        description: неактивные минуты в этом часе
+        type: integer
+      productivity:
+        description: engaged_mins / total_mins * 100
+        type: number
+      sessions:
+        description: количество сессий
+        type: integer
+      timestamp:
+        description: '"8:00 AM", "9:00 AM"'
+        type: string
+      total_mins:
+        description: общее время в этом часе
         type: integer
     type: object
   entity.PaginatedResponse:
