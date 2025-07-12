@@ -180,6 +180,13 @@ definitions:
       success:
         type: boolean
     type: object
+  entity.EventTypes:
+    properties:
+      amount:
+        type: integer
+      event:
+        type: string
+    type: object
   entity.ExtensionUser:
     properties:
       apiKey:
@@ -422,6 +429,21 @@ definitions:
         type: integer
       uniqueUsers:
         type: integer
+    type: object
+  entity.UserEventsCountResponse:
+    properties:
+      end_time:
+        type: string
+      events:
+        items:
+          $ref: '#/definitions/entity.EventTypes'
+        type: array
+      start_time:
+        type: string
+      total:
+        type: integer
+      user_id:
+        type: string
     type: object
   request.CreateUserWithPassword:
     properties:
@@ -832,6 +854,47 @@ paths:
             - properties:
                 data:
                   $ref: '#/definitions/entity.UserBehaviorStats'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get behavior statistics
+      tags:
+      - /api/v1/admin/behaviors
+  /behaviors/user-events:
+    get:
+      consumes:
+      - application/json
+      description: Get statistics about user behaviors
+      parameters:
+      - description: User ID
+        in: query
+        name: userId
+        type: string
+      - description: Start time (RFC3339 format)
+        in: query
+        name: startTime
+        type: string
+      - description: End time (RFC3339 format)
+        in: query
+        name: endTime
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/entity.UserEventsCountResponse'
               type: object
         "400":
           description: Bad Request

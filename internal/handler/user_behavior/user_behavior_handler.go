@@ -619,6 +619,70 @@ func (h *UserBehaviorHandler) DeleteBehavior(c *gin.Context) {
 	})
 }
 
+// GetStats godoc
+// @Summary      Get behavior statistics
+// @Description  Get statistics about user behaviors
+// @Tags         /api/v1/admin/behaviors
+// @Accept       json
+// @Produce      json
+// @Param        userId     query     string  false  "User ID"
+// @Param        startTime  query     string  false  "Start time (RFC3339 format)"
+// @Param        endTime    query     string  false  "End time (RFC3339 format)"
+// @Success      200        {object}  wrapper.ResponseWrapper{data=entity.UserEventsCountResponse}
+// @Failure      400        {object}  wrapper.ErrorWrapper
+// @Failure      500        {object}  wrapper.ErrorWrapper
+// @Router       /behaviors/user-events [get]
+func (h *UserBehaviorHandler) GetUserEventsCount(c *gin.Context) {
+	var filter entity.UserEventsCount
+
+	if userID := c.Query("user_id"); userID != "" {
+		filter.UserID = userID
+	}
+
+	if startTimeStr := c.Query("start_time"); startTimeStr != "" {
+		startTime, err := time.Parse(time.RFC3339, startTimeStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
+				Message: "Invalid start_time format, use RFC3339",
+			})
+			return
+		}
+		filter.StartTime = &startTime
+	}
+
+	if endTimeStr := c.Query("end_time"); endTimeStr != "" {
+		endTime, err := time.Parse(time.RFC3339, endTimeStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
+				Message: "Invalid end_time format, use RFC3339",
+			})
+			return
+		}
+		filter.EndTime = &endTime
+	}
+
+	if filter.StartTime != nil && filter.EndTime != nil && filter.StartTime.After(*filter.EndTime) {
+		c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
+			Message: "startTime cannot be after endTime",
+		})
+		return
+	}
+
+	result, err := h.service.GetUserEventsCount(c.Request.Context(), filter)
+	if err != nil {
+
+		c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{
+			Message: "Failed to retrieve user events count",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, wrapper.ResponseWrapper{
+		Data:    result,
+		Success: true,
+	})
+}
+
 func (h *UserBehaviorHandler) RegisterRoutes(router *gin.RouterGroup) {
 	behaviors := router.Group("/behaviors")
 	{

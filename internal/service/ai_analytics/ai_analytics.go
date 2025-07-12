@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"github.com/dinerozz/web-behavior-backend/internal/entity"
 	"net/http"
-	strings "strings"
+	"strings"
 	"time"
 )
 
@@ -71,18 +71,14 @@ func (s *AIAnalyticsService) AnalyzeDomainUsage(ctx context.Context, domainsCoun
 		return nil, fmt.Errorf("failed to call OpenAI: %w", err)
 	}
 
-	// Очищаем ответ от markdown разметки
 	cleanResponse := s.cleanJSONResponse(response)
 
 	var analysis entity.DomainAnalysis
 	if err := json.Unmarshal([]byte(cleanResponse), &analysis); err != nil {
-		// Логируем ошибку для отладки
 		fmt.Printf("Failed to parse AI response: %v\nRaw response: %s\n", err, response)
 
-		// Возвращаем fallback с частичным анализом
 		return &entity.DomainAnalysis{
-			FocusLevel: s.DetermineFocusLevelFallback(domainsCount),
-			//FocusInsight:    s.generateFocusInsightFallback(domainsCount, domains),
+			FocusLevel:      s.DetermineFocusLevelFallback(domainsCount),
 			WorkPattern:     "unknown",
 			Recommendations: []string{},
 			Analysis: entity.DetailedAnalysis{
@@ -241,7 +237,6 @@ func formatDomainsForPrompt(domains []string) string {
 		}
 		result.WriteString(domain)
 
-		// Группируем по 6 доменов в строку для читабельности
 		if (i+1)%6 == 0 && i < len(domains)-1 {
 			result.WriteString("\n")
 		}
@@ -307,7 +302,6 @@ func (s *AIAnalyticsService) callOpenAI(ctx context.Context, request OpenAIReque
 	return openAIResp.Choices[0].Message.Content, nil
 }
 
-// Fallback функция если AI недоступен
 func (s *AIAnalyticsService) DetermineFocusLevelFallback(domainsCount int) string {
 	switch {
 	case domainsCount <= 5:

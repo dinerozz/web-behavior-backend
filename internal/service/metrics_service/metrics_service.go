@@ -32,7 +32,6 @@ func (s *MetricsService) GetTrackedTime(ctx context.Context, filter entity.Track
 		return nil, fmt.Errorf("end_time must be after start_time")
 	}
 
-	// Ограничение на максимальный период (например, 90 дней)
 	if filter.EndTime.Sub(filter.StartTime) > 90*24*time.Hour {
 		return nil, fmt.Errorf("period cannot exceed 90 days")
 	}
@@ -90,10 +89,8 @@ func (s *MetricsService) GetEngagedTime(ctx context.Context, filter entity.Engag
 			metric.TrackedHours,
 		)
 		if err != nil {
-			// Если AI недоступен, используем fallback
 			metric.FocusLevel = s.aiService.DetermineFocusLevelFallback(metric.UniqueDomainsCount)
 		} else {
-			// Используем AI анализ
 			metric.FocusLevel = analysis.FocusLevel
 			metric.FocusInsight = analysis.FocusInsight
 			metric.WorkPattern = analysis.WorkPattern

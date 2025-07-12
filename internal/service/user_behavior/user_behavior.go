@@ -20,6 +20,7 @@ type UserBehaviorService interface {
 	DeleteBehavior(ctx context.Context, id uuid.UUID) error
 	ValidateEventType(eventType string) bool
 	ValidateCoordinates(x, y *int, eventType string) error
+	GetUserEventsCount(ctx context.Context, filter entity.UserEventsCount) (*entity.UserEventsCountResponse, error)
 }
 
 type userBehaviorService struct {
@@ -243,12 +244,22 @@ func (s *userBehaviorService) DeleteBehavior(ctx context.Context, id uuid.UUID) 
 	return nil
 }
 
+func (s *userBehaviorService) GetUserEventsCount(ctx context.Context, filter entity.UserEventsCount) (*entity.UserEventsCountResponse, error) {
+	events, err := s.repo.GetUserEventsCount(ctx, filter)
+	if err != nil {
+		fmt.Printf("Error getting user events count: %v\n", err)
+
+		return &entity.UserEventsCountResponse{}, fmt.Errorf("failed to get user events count: %w", err)
+	}
+
+	return events, nil
+}
+
 func (s *userBehaviorService) ValidateEventType(eventType string) bool {
 	return validEventTypes[eventType]
 }
 
 func (s *userBehaviorService) ValidateCoordinates(x, y *int, eventType string) error {
-	// Для событий click координаты обязательны
 	if eventType == "click" {
 		if x == nil || y == nil {
 			return fmt.Errorf("coordinates (x, y) are required for click events")
@@ -259,7 +270,6 @@ func (s *userBehaviorService) ValidateCoordinates(x, y *int, eventType string) e
 		}
 	}
 
-	// Для других типов событий координаты необязательны, но если есть - валидируем
 	if (x != nil || y != nil) && eventType != "click" {
 		if x != nil && (*x < 0 || *x > 10000) {
 			return fmt.Errorf("invalid x coordinate")

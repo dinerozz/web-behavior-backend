@@ -45,14 +45,32 @@ type UserBehaviorFilter struct {
 	StartTime *time.Time `json:"start_time"`
 	EndTime   *time.Time `json:"end_time"`
 
-	// Старые параметры
 	Limit  int `json:"limit"`
 	Offset int `json:"offset"`
 
-	// Новые параметры пагинации
 	Page    int `json:"page"`
 	PerPage int `json:"per_page"`
 }
+
+type UserEventsCount struct {
+	StartTime *time.Time `json:"start_time"`
+	EndTime   *time.Time `json:"end_time"`
+	UserID    string     `json:"user_id"`
+}
+
+type UserEventsCountResponse struct {
+	StartTime *time.Time   `json:"start_time"`
+	EndTime   *time.Time   `json:"end_time"`
+	UserID    string       `json:"user_id"`
+	Events    []EventTypes `json:"events"`
+	Total     int          `json:"total"`
+}
+
+type EventTypes struct {
+	Event  string `json:"event"`
+	Amount int    `json:"amount"`
+}
+
 type UserBehaviorStats struct {
 	TotalEvents    int64            `json:"totalEvents"`
 	UniqueUsers    int64            `json:"uniqueUsers"`

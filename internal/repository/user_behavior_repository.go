@@ -28,6 +28,7 @@ type UserBehaviorRepository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	CountByFilter(ctx context.Context, filter entity.UserBehaviorFilter) (int, error)
 	CountUserSessions(ctx context.Context, userID string) (int, error)
+	GetUserEventsCount(ctx context.Context, filter entity.UserEventsCount) (*entity.UserEventsCountResponse, error)
 }
 
 type userBehaviorRepository struct {
@@ -487,6 +488,77 @@ func (r *userBehaviorRepository) buildWhereClauseWithExtra(filter entity.UserBeh
 	}
 
 	return " WHERE " + strings.Join(conditions, " AND "), args
+}
+
+func (r *userBehaviorRepository) GetUserEventsCount(ctx context.Context, filter entity.UserEventsCount) (*entity.UserEventsCountResponse, error) {
+	// Базовый запрос
+	query := `SELECT event_type, COUNT(*) as event_count FROM user_behaviors WHERE 1=1`
+	var args []interface{}
+	argIndex := 1
+
+	// Динамически добавляем условия
+	if filter.UserID != "" {
+		query += fmt.Sprintf(" AND user_id = $%d", argIndex)
+		args = append(args, filter.UserID)
+		argIndex++
+	}
+
+	if filter.StartTime != nil {
+		query += fmt.Sprintf(" AND timestamp >= $%d", argIndex)
+		args = append(args, *filter.StartTime)
+		argIndex++
+	}
+
+	if filter.EndTime != nil {
+		query += fmt.Sprintf(" AND timestamp <= $%d", argIndex)
+		args = append(args, *filter.EndTime)
+		argIndex++
+	}
+
+	query += " GROUP BY event_type ORDER BY event_count DESC"
+
+	fmt.Printf("Executing query: %s\nWith args: %+v\n", query, args)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query events count: %w", err)
+	}
+	defer rows.Close()
+
+	var events []entity.EventTypes
+	var totalEvents int
+
+	for rows.Next() {
+		var eventType string
+		var count int
+
+		if err = rows.Scan(&eventType, &count); err != nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+
+		fmt.Printf("Scanned event: %s, count: %d\n", eventType, count)
+
+		events = append(events, entity.EventTypes{
+			Event:  eventType,
+			Amount: count,
+		})
+
+		totalEvents += count
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating rows: %w", err)
+	}
+
+	fmt.Printf("Final events slice: %+v, total: %d\n", events, totalEvents)
+
+	return &entity.UserEventsCountResponse{
+		StartTime: filter.StartTime,
+		EndTime:   filter.EndTime,
+		UserID:    filter.UserID,
+		Events:    events,
+		Total:     totalEvents,
+	}, nil
 }
 
 type StringSlice []string

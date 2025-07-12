@@ -149,7 +149,6 @@ func (s *extensionUserService) GetAllUsers(ctx context.Context, filter entity.Ex
 }
 
 func (s *extensionUserService) UpdateUser(ctx context.Context, id uuid.UUID, req entity.UpdateExtensionUserRequest) (*entity.ExtensionUserPublic, error) {
-	// Проверяем существование пользователя
 	existingUser, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check user existence: %w", err)
@@ -158,7 +157,6 @@ func (s *extensionUserService) UpdateUser(ctx context.Context, id uuid.UUID, req
 		return nil, fmt.Errorf("user not found")
 	}
 
-	// Проверяем уникальность username если он обновляется
 	if req.Username != nil && *req.Username != existingUser.Username {
 		userWithSameUsername, err := s.repo.GetByUsername(ctx, *req.Username)
 		if err != nil {
@@ -181,7 +179,6 @@ func (s *extensionUserService) UpdateUser(ctx context.Context, id uuid.UUID, req
 }
 
 func (s *extensionUserService) RegenerateAPIKey(ctx context.Context, id uuid.UUID) (*entity.RegenerateAPIKeyResponse, error) {
-	// Проверяем существование пользователя
 	existingUser, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check user existence: %w", err)
@@ -243,7 +240,6 @@ func (s *extensionUserService) GetStats(ctx context.Context) (*entity.ExtensionU
 	return stats, nil
 }
 
-// toPublicUser конвертирует ExtensionUser в ExtensionUserPublic (скрывает API ключ)
 func (s *extensionUserService) toPublicUser(user *entity.ExtensionUser) *entity.ExtensionUserPublic {
 	return &entity.ExtensionUserPublic{
 		ID:         user.ID,
