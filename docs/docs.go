@@ -71,76 +71,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/metrics/deep-work-sessions": {
-            "get": {
-                "description": "Analyze user's deep work sessions (25+ minute focused work blocks) and context switches. Deep Work Sessions are continuous activity blocks lasting 25+ minutes with gaps no longer than 5 minutes between active events (click, keydown, scrollend). Context Switches are measured as domain changes within each deep work block.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Metrics"
-                ],
-                "summary": "Get Deep Work Sessions Analysis",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "User ID",
-                        "name": "user_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Start time (RFC3339 format)",
-                        "name": "start_time",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "End time (RFC3339 format)",
-                        "name": "end_time",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/wrapper.ResponseWrapper"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/entity.DeepWorkSessionsResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/wrapper.ErrorWrapper"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/wrapper.ErrorWrapper"
-                        }
-                    }
-                }
-            }
-        },
         "/behaviors": {
             "get": {
                 "description": "Get user behavior events with optional filters",
@@ -1384,6 +1314,76 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/wrapper.ErrorWrapper"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/wrapper.ErrorWrapper"
+                        }
+                    }
+                }
+            }
+        },
+        "/metrics/deep-work-sessions": {
+            "get": {
+                "description": "Analyze user's deep work sessions (25+ minute focused work blocks) and context switches. Deep Work Sessions are continuous activity blocks lasting 25+ minutes with gaps no longer than 5 minutes between active events (click, keydown, scrollend). Context Switches are measured as domain changes within each deep work block.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "/api/v1/admin/metrics"
+                ],
+                "summary": "Get Deep Work Sessions Analysis",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "user_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start time (RFC3339 format)",
+                        "name": "start_time",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "End time (RFC3339 format)",
+                        "name": "end_time",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wrapper.ResponseWrapper"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/entity.DeepWorkSessionsResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/wrapper.ErrorWrapper"
                         }

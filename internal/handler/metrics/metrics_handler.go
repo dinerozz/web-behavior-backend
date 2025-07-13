@@ -300,7 +300,7 @@ func (h *MetricsHandler) GetTopDomains(c *gin.Context) {
 // GetDeepWorkSessions godoc
 // @Summary Get Deep Work Sessions Analysis
 // @Description Analyze user's deep work sessions (25+ minute focused work blocks) and context switches. Deep Work Sessions are continuous activity blocks lasting 25+ minutes with gaps no longer than 5 minutes between active events (click, keydown, scrollend). Context Switches are measured as domain changes within each deep work block.
-// @Tags Metrics
+// @Tags /api/v1/admin/metrics
 // @Accept json
 // @Produce json
 // @Param        user_id      query     string  true   "User ID"
@@ -309,7 +309,7 @@ func (h *MetricsHandler) GetTopDomains(c *gin.Context) {
 // @Success 200 {object} wrapper.ResponseWrapper{data=entity.DeepWorkSessionsResponse}
 // @Failure 400 {object} wrapper.ErrorWrapper
 // @Failure 500 {object} wrapper.ErrorWrapper
-// @Router /api/v1/metrics/deep-work-sessions [get]
+// @Router /metrics/deep-work-sessions [get]
 func (h *MetricsHandler) GetDeepWorkSessions(c *gin.Context) {
 	userID := c.Query("user_id")
 	startTimeStr := c.Query("start_time")
