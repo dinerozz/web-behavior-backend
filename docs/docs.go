@@ -71,6 +71,76 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/metrics/deep-work-sessions": {
+            "get": {
+                "description": "Analyze user's deep work sessions (25+ minute focused work blocks) and context switches. Deep Work Sessions are continuous activity blocks lasting 25+ minutes with gaps no longer than 5 minutes between active events (click, keydown, scrollend). Context Switches are measured as domain changes within each deep work block.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Metrics"
+                ],
+                "summary": "Get Deep Work Sessions Analysis",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "user_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start time (RFC3339 format)",
+                        "name": "start_time",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "End time (RFC3339 format)",
+                        "name": "end_time",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wrapper.ResponseWrapper"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/entity.DeepWorkSessionsResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/wrapper.ErrorWrapper"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/wrapper.ErrorWrapper"
+                        }
+                    }
+                }
+            }
+        },
         "/behaviors": {
             "get": {
                 "description": "Get user behavior events with optional filters",
@@ -1661,6 +1731,31 @@ const docTemplate = `{
                 }
             }
         },
+        "entity.ContextSwitchesStats": {
+            "type": "object",
+            "properties": {
+                "avg_switches_per_hour": {
+                    "type": "number",
+                    "example": 3.75
+                },
+                "high_focus_blocks": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "low_focus_blocks": {
+                    "type": "integer",
+                    "example": 0
+                },
+                "medium_focus_blocks": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "total_switches": {
+                    "type": "integer",
+                    "example": 8
+                }
+            }
+        },
         "entity.CreateExtensionUserRequest": {
             "type": "object",
             "required": [
@@ -1759,6 +1854,112 @@ const docTemplate = `{
                 },
                 "sessions": {
                     "type": "integer"
+                }
+            }
+        },
+        "entity.DeepWorkSession": {
+            "type": "object",
+            "properties": {
+                "block_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "context_switches": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "duration_minutes": {
+                    "type": "number",
+                    "example": 45.3
+                },
+                "end_time": {
+                    "type": "string",
+                    "example": "2025-07-10T15:00:00Z"
+                },
+                "focus_level": {
+                    "type": "string",
+                    "enum": [
+                        "high",
+                        "medium",
+                        "low"
+                    ],
+                    "example": "high"
+                },
+                "start_time": {
+                    "type": "string",
+                    "example": "2025-07-10T14:15:00Z"
+                },
+                "switches_per_hour": {
+                    "type": "number",
+                    "example": 2.64
+                },
+                "total_events": {
+                    "type": "integer",
+                    "example": 342
+                }
+            }
+        },
+        "entity.DeepWorkSessionsResponse": {
+            "type": "object",
+            "properties": {
+                "average_minutes": {
+                    "type": "number",
+                    "example": 42.5
+                },
+                "context_switches": {
+                    "$ref": "#/definitions/entity.ContextSwitchesStats"
+                },
+                "deep_work_context_ratio": {
+                    "type": "number",
+                    "example": 0.375
+                },
+                "deep_work_rate": {
+                    "type": "number",
+                    "example": 59.64
+                },
+                "end_time": {
+                    "type": "string",
+                    "example": "2025-07-11T19:59:59Z"
+                },
+                "hourly_breakdown": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/entity.HourlyDeepWorkData"
+                    }
+                },
+                "longest_minutes": {
+                    "type": "number",
+                    "example": 65.2
+                },
+                "period": {
+                    "type": "string",
+                    "example": "2025-07-10 08:00 - 2025-07-11 19:59"
+                },
+                "sessions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/entity.DeepWorkSession"
+                    }
+                },
+                "sessions_count": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "start_time": {
+                    "type": "string",
+                    "example": "2025-07-10T08:00:00Z"
+                },
+                "total_hours": {
+                    "type": "number",
+                    "example": 2.13
+                },
+                "total_minutes": {
+                    "type": "number",
+                    "example": 127.5
+                },
+                "user_id": {
+                    "type": "string",
+                    "example": "39b962b6-d4fa-49a6-8f3e-e4ff9b6bb0df"
                 }
             }
         },
@@ -2032,6 +2233,47 @@ const docTemplate = `{
                 "total_mins": {
                     "description": "общее время в этом часе",
                     "type": "integer"
+                }
+            }
+        },
+        "entity.HourlyDeepWorkData": {
+            "type": "object",
+            "properties": {
+                "context_switches": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "date": {
+                    "type": "string",
+                    "example": "2025-07-13"
+                },
+                "deep_work_mins": {
+                    "type": "integer",
+                    "example": 45
+                },
+                "deep_work_rate": {
+                    "type": "number",
+                    "example": 75
+                },
+                "hour": {
+                    "type": "integer",
+                    "example": 17
+                },
+                "sessions": {
+                    "type": "integer",
+                    "example": 5
+                },
+                "switches_per_hour": {
+                    "type": "number",
+                    "example": 4.5
+                },
+                "timestamp": {
+                    "type": "string",
+                    "example": "5:00 PM"
+                },
+                "total_mins": {
+                    "type": "integer",
+                    "example": 60
                 }
             }
         },

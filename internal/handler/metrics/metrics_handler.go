@@ -20,6 +20,7 @@ type MetricsService interface {
 	GetTrackedTimeTotal(ctx context.Context, filter entity.TrackedTimeFilter) (*entity.TrackedTimeMetric, error)
 	GetEngagedTime(ctx context.Context, filter entity.EngagedTimeFilter) (*entity.EngagedTimeMetric, error)
 	GetTopDomains(ctx context.Context, filter entity.TopDomainsFilter) (*entity.TopDomainsResponse, error)
+	GetDeepWorkSessions(ctx context.Context, filter entity.DeepWorkSessionsFilter) (*entity.DeepWorkSessionsResponse, error)
 }
 
 func NewMetricsHandler(service MetricsService) *MetricsHandler {
@@ -293,5 +294,108 @@ func (h *MetricsHandler) GetTopDomains(c *gin.Context) {
 	c.JSON(http.StatusOK, wrapper.ResponseWrapper{
 		Data:    result,
 		Success: true,
+	})
+}
+
+// GetDeepWorkSessions godoc
+// @Summary Get Deep Work Sessions Analysis
+// @Description Analyze user's deep work sessions (25+ minute focused work blocks) and context switches. Deep Work Sessions are continuous activity blocks lasting 25+ minutes with gaps no longer than 5 minutes between active events (click, keydown, scrollend). Context Switches are measured as domain changes within each deep work block.
+// @Tags Metrics
+// @Accept json
+// @Produce json
+// @Param        user_id      query     string  true   "User ID"
+// @Param        start_time   query     string  true   "Start time (RFC3339 format)"
+// @Param        end_time     query     string  true   "End time (RFC3339 format)"
+// @Success 200 {object} wrapper.ResponseWrapper{data=entity.DeepWorkSessionsResponse}
+// @Failure 400 {object} wrapper.ErrorWrapper
+// @Failure 500 {object} wrapper.ErrorWrapper
+// @Router /api/v1/metrics/deep-work-sessions [get]
+func (h *MetricsHandler) GetDeepWorkSessions(c *gin.Context) {
+	userID := c.Query("user_id")
+	startTimeStr := c.Query("start_time")
+	endTimeStr := c.Query("end_time")
+	sessionID := c.Query("session_id")
+
+	if userID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "user_id is required",
+		})
+		return
+	}
+
+	if startTimeStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "start_time is required",
+		})
+		return
+	}
+
+	if endTimeStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "end_time is required",
+		})
+		return
+	}
+
+	startTime, err := time.Parse(time.RFC3339, startTimeStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "Invalid start_time format, use RFC3339 (e.g., 2025-07-10T08:00:00Z)",
+		})
+		return
+	}
+
+	endTime, err := time.Parse(time.RFC3339, endTimeStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "Invalid end_time format, use RFC3339 (e.g., 2025-07-11T19:59:59Z)",
+		})
+		return
+	}
+
+	if endTime.Before(startTime) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "end_time must be after start_time",
+		})
+		return
+	}
+
+	if endTime.Sub(startTime) > 30*24*time.Hour {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "Time range cannot exceed 30 days",
+		})
+		return
+	}
+
+	filter := entity.DeepWorkSessionsFilter{
+		UserID:    userID,
+		StartTime: startTime,
+		EndTime:   endTime,
+	}
+
+	if sessionID != "" {
+		filter.SessionID = &sessionID
+	}
+
+	result, err := h.service.GetDeepWorkSessions(c.Request.Context(), filter)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "Failed to get deep work sessions",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    result,
 	})
 }

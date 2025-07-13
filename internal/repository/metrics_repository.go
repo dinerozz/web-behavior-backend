@@ -45,11 +45,29 @@ type engagedTimeResult struct {
 	HourlyBreakdownData json.RawMessage `db:"hourly_breakdown_data"`
 }
 
+type deepWorkSessionsResult struct {
+	SessionsCount        int             `db:"sessions_count"`
+	TotalMinutes         float64         `db:"total_minutes"`
+	AverageMinutes       float64         `db:"average_minutes"`
+	LongestMinutes       float64         `db:"longest_minutes"`
+	TotalContextSwitches int             `db:"total_context_switches"`
+	AvgSwitchesPerHour   float64         `db:"avg_switches_per_hour"`
+	HighFocusBlocks      int             `db:"high_focus_blocks"`
+	MediumFocusBlocks    int             `db:"medium_focus_blocks"`
+	LowFocusBlocks       int             `db:"low_focus_blocks"`
+	DeepWorkContextRatio float64         `db:"deep_work_context_ratio"`
+	SessionsData         json.RawMessage `db:"sessions_data"`
+	TotalTrackedMinutes  int             `db:"total_tracked_minutes"`
+
+	HourlyBreakdownData json.RawMessage `db:"hourly_breakdown_data"`
+}
+
 type UserMetricsRepository interface {
 	GetTrackedTime(ctx context.Context, filter entity.TrackedTimeFilter) (*entity.TrackedTimeMetric, error)
 	GetTrackedTimeTotal(ctx context.Context, filter entity.TrackedTimeFilter) (*entity.TrackedTimeMetric, error)
 	GetEngagedTime(ctx context.Context, filter entity.EngagedTimeFilter) (*entity.EngagedTimeMetric, error)
 	GetTopDomains(ctx context.Context, filter entity.TopDomainsFilter) (*entity.TopDomainsResponse, error)
+	GetDeepWorkSessions(ctx context.Context, filter entity.DeepWorkSessionsFilter) (*entity.DeepWorkSessionsResponse, error)
 }
 
 type metricsRepository struct {
@@ -817,4 +835,360 @@ func (r *metricsRepository) GetTopDomains(ctx context.Context, filter entity.Top
 		TotalEvents:  totalEvents,
 		Domains:      domains,
 	}, nil
+}
+
+const deepWorkSessionsMainQuery = `
+WITH active_events AS (
+	SELECT
+		ub.user_id,
+		ub.timestamp,
+		ub.event_type,
+		ub.url,
+		CASE 
+			WHEN ub.url ~ '^https?://' THEN 
+				split_part(split_part(ub.url, '://', 2), '/', 1)
+			ELSE 
+				split_part(ub.url, '/', 1)
+		END as domain,
+		LAG(ub.timestamp) OVER (PARTITION BY ub.user_id ORDER BY ub.timestamp) AS prev_timestamp
+	FROM user_behaviors ub
+	WHERE ub.user_id = $1 
+		AND ub.timestamp >= $2 
+		AND ub.timestamp <= $3
+		AND ub.event_type IN ('click', 'keydown', 'scrollend') %s
+),
+gaps_marked AS (
+	SELECT *,
+		CASE 
+			WHEN prev_timestamp IS NULL 
+				OR EXTRACT(EPOCH FROM (timestamp - prev_timestamp)) > 300
+			THEN 1 ELSE 0 
+		END AS is_new_block
+	FROM active_events
+),
+numbered_blocks AS (
+	SELECT *,
+		SUM(is_new_block) OVER (PARTITION BY user_id ORDER BY timestamp) AS block_id
+	FROM gaps_marked
+),
+block_boundaries AS (
+	SELECT
+		user_id,
+		block_id,
+		MIN(timestamp) AS start_time,
+		MAX(timestamp) AS last_active_time,
+		COUNT(*) AS total_events
+	FROM numbered_blocks
+	GROUP BY user_id, block_id
+),
+final_blocks AS (
+	SELECT *,
+		last_active_time + INTERVAL '5 minutes' AS end_time,
+		EXTRACT(EPOCH FROM (last_active_time + INTERVAL '5 minutes') - start_time) / 60.0 AS duration_minutes
+	FROM block_boundaries
+),
+deep_work_blocks AS (
+	SELECT *
+	FROM final_blocks
+	WHERE duration_minutes >= 25
+),
+context_switches_per_block AS (
+	SELECT 
+		nb.block_id,
+		COUNT(CASE WHEN nb.domain IS DISTINCT FROM prev_domain THEN 1 END) AS context_switches
+	FROM (
+		SELECT 
+			block_id,
+			domain,
+			LAG(domain) OVER (PARTITION BY block_id ORDER BY timestamp) AS prev_domain
+		FROM numbered_blocks
+		WHERE block_id IN (SELECT block_id FROM deep_work_blocks)
+	) nb
+	GROUP BY nb.block_id
+),
+deep_work_with_switches AS (
+	SELECT 
+		dwb.*,
+		COALESCE(cs.context_switches, 0) AS context_switches,
+		ROUND(COALESCE(cs.context_switches * 60.0 / dwb.duration_minutes, 0)::numeric, 2) AS switches_per_hour,
+		CASE 
+			WHEN COALESCE(cs.context_switches * 60.0 / dwb.duration_minutes, 0) <= 5 THEN 'high'
+			WHEN COALESCE(cs.context_switches * 60.0 / dwb.duration_minutes, 0) <= 15 THEN 'medium'
+			ELSE 'low'
+		END AS focus_level
+	FROM deep_work_blocks dwb
+	LEFT JOIN context_switches_per_block cs ON dwb.block_id = cs.block_id
+),
+hourly_basic_stats AS (
+	SELECT 
+		EXTRACT(HOUR FROM ub.timestamp)::integer as hour,
+		DATE(ub.timestamp) as date,
+		COUNT(DISTINCT DATE_TRUNC('minute', ub.timestamp))::integer as total_minutes,
+		COUNT(DISTINCT ub.session_id)::integer as sessions_count
+	FROM user_behaviors ub
+	WHERE ub.user_id = $1 
+		AND ub.timestamp >= $2 
+		AND ub.timestamp <= $3 %s
+	GROUP BY EXTRACT(HOUR FROM ub.timestamp), DATE(ub.timestamp)
+),
+hourly_deep_work AS (
+	SELECT 
+		EXTRACT(HOUR FROM timestamp)::integer as hour,
+		DATE(timestamp) as date,
+		SUM(
+			CASE 
+				WHEN timestamp BETWEEN dwws.start_time AND dwws.end_time 
+				THEN EXTRACT(EPOCH FROM 
+					LEAST(DATE_TRUNC('hour', timestamp) + INTERVAL '1 hour', dwws.end_time) -
+					GREATEST(DATE_TRUNC('hour', timestamp), dwws.start_time)
+				) / 60.0
+				ELSE 0 
+			END
+		)::numeric as deep_work_minutes
+	FROM numbered_blocks nb
+	JOIN deep_work_with_switches dwws ON nb.block_id = dwws.block_id
+	GROUP BY EXTRACT(HOUR FROM timestamp), DATE(timestamp)
+),
+hourly_context_switches AS (
+	SELECT 
+		EXTRACT(HOUR FROM timestamp)::integer as hour,
+		DATE(timestamp) as date,
+		COUNT(CASE WHEN domain IS DISTINCT FROM prev_domain THEN 1 END)::integer as context_switches
+	FROM (
+		SELECT 
+			timestamp,
+			domain,
+			LAG(domain) OVER (PARTITION BY EXTRACT(HOUR FROM timestamp), DATE(timestamp) ORDER BY timestamp) as prev_domain
+		FROM numbered_blocks
+		WHERE block_id IN (SELECT block_id FROM deep_work_blocks)
+	) hourly_domains
+	GROUP BY EXTRACT(HOUR FROM timestamp), DATE(timestamp)
+),
+hourly_breakdown AS (
+	SELECT 
+		hbs.hour,
+		hbs.date,
+		hbs.total_minutes,
+		hbs.sessions_count as sessions,
+		COALESCE(hdw.deep_work_minutes, 0::numeric) as deep_work_minutes,
+		COALESCE(hcs.context_switches, 0) as context_switches,
+		CASE 
+			WHEN COALESCE(hdw.deep_work_minutes, 0::numeric) > 0::numeric 
+			THEN ROUND((COALESCE(hcs.context_switches, 0)::numeric * 60.0 / COALESCE(hdw.deep_work_minutes, 0::numeric)), 2)
+			ELSE 0::numeric 
+		END as switches_per_hour,
+		CASE 
+			WHEN hbs.total_minutes > 0 
+			THEN ROUND((COALESCE(hdw.deep_work_minutes, 0::numeric) * 100.0 / hbs.total_minutes::numeric), 2)
+			ELSE 0::numeric 
+		END as deep_work_rate
+	FROM hourly_basic_stats hbs
+	LEFT JOIN hourly_deep_work hdw ON hbs.hour = hdw.hour AND hbs.date = hdw.date
+	LEFT JOIN hourly_context_switches hcs ON hbs.hour = hcs.hour AND hbs.date = hcs.date
+	ORDER BY hbs.date, hbs.hour
+),
+total_tracked_time AS (
+	SELECT 
+		COUNT(DISTINCT DATE_TRUNC('minute', ub.timestamp))::integer as total_tracked_minutes
+	FROM user_behaviors ub
+	WHERE ub.user_id = $1 
+		AND ub.timestamp >= $2 
+		AND ub.timestamp <= $3 %s
+),
+aggregated_stats AS (
+	SELECT 
+		COUNT(*)::integer as sessions_count,
+		COALESCE(SUM(duration_minutes), 0::numeric) as total_minutes,
+		COALESCE(AVG(duration_minutes), 0::numeric) as average_minutes,
+		COALESCE(MAX(duration_minutes), 0::numeric) as longest_minutes,
+		COALESCE(SUM(context_switches), 0)::integer as total_context_switches,
+		COALESCE(AVG(switches_per_hour), 0::numeric) as avg_switches_per_hour,
+		COUNT(CASE WHEN focus_level = 'high' THEN 1 END)::integer as high_focus_blocks,
+		COUNT(CASE WHEN focus_level = 'medium' THEN 1 END)::integer as medium_focus_blocks,
+		COUNT(CASE WHEN focus_level = 'low' THEN 1 END)::integer as low_focus_blocks,
+		CASE 
+			WHEN COALESCE(SUM(context_switches), 0) > 0 
+			THEN COUNT(*)::numeric / COALESCE(SUM(context_switches), 0)::numeric
+			ELSE COUNT(*)::numeric
+		END as deep_work_context_ratio
+	FROM deep_work_with_switches
+),
+sessions_detailed AS (
+	SELECT 
+		COALESCE(
+			json_agg(
+				json_build_object(
+					'block_id', block_id,
+					'start_time', start_time,
+					'end_time', end_time,
+					'duration_minutes', duration_minutes,
+					'total_events', total_events,
+					'context_switches', context_switches,
+					'switches_per_hour', switches_per_hour,
+					'focus_level', focus_level
+				) ORDER BY start_time
+			),
+			'[]'::json
+		) as sessions_data
+	FROM deep_work_with_switches
+),
+hourly_breakdown_data AS (
+	SELECT 
+		COALESCE(
+			json_agg(
+				json_build_object(
+					'hour', hour,
+					'date', date,
+					'timestamp', CASE 
+						WHEN hour = 0 THEN '12:00 AM'
+						WHEN hour = 12 THEN '12:00 PM'
+						WHEN hour < 12 THEN hour || ':00 AM'
+						ELSE (hour - 12) || ':00 PM'
+					END,
+					'total_mins', total_minutes,
+					'sessions', sessions,
+					'deep_work_mins', deep_work_minutes,
+					'context_switches', context_switches,
+					'switches_per_hour', switches_per_hour,
+					'deep_work_rate', deep_work_rate
+				) ORDER BY date, hour
+			),
+			'[]'::json
+		) as hourly_data
+	FROM hourly_breakdown
+)
+SELECT 
+	COALESCE(ag.sessions_count, 0) as sessions_count,
+	COALESCE(ag.total_minutes, 0::numeric) as total_minutes,
+	COALESCE(ag.average_minutes, 0::numeric) as average_minutes,
+	COALESCE(ag.longest_minutes, 0::numeric) as longest_minutes,
+	COALESCE(ag.total_context_switches, 0) as total_context_switches,
+	COALESCE(ag.avg_switches_per_hour, 0::numeric) as avg_switches_per_hour,
+	COALESCE(ag.high_focus_blocks, 0) as high_focus_blocks,
+	COALESCE(ag.medium_focus_blocks, 0) as medium_focus_blocks,
+	COALESCE(ag.low_focus_blocks, 0) as low_focus_blocks,
+	COALESCE(ag.deep_work_context_ratio, 0::numeric) as deep_work_context_ratio,
+	sd.sessions_data,
+	COALESCE(tt.total_tracked_minutes, 0) as total_tracked_minutes,
+	hbd.hourly_data as hourly_breakdown_data
+FROM aggregated_stats ag
+CROSS JOIN sessions_detailed sd
+CROSS JOIN total_tracked_time tt
+CROSS JOIN hourly_breakdown_data hbd`
+
+func (r *metricsRepository) GetDeepWorkSessions(ctx context.Context, filter entity.DeepWorkSessionsFilter) (*entity.DeepWorkSessionsResponse, error) {
+	sessionFilter := ""
+
+	if filter.SessionID != nil {
+		sessionFilter = " AND session_id = $4"
+	}
+
+	query := fmt.Sprintf(deepWorkSessionsMainQuery, sessionFilter, sessionFilter, sessionFilter)
+
+	args := []interface{}{filter.UserID, filter.StartTime, filter.EndTime}
+
+	if filter.SessionID != nil {
+		args = append(args, *filter.SessionID)
+	}
+
+	var result deepWorkSessionsResult
+	err := r.db.GetContext(ctx, &result, query, args...)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return r.buildEmptyDeepWorkSessionsResponse(filter), nil
+		}
+		return nil, fmt.Errorf("failed to get deep work sessions: %w", err)
+	}
+
+	return r.buildDeepWorkSessionsResponse(filter, result), nil
+}
+
+func (r *metricsRepository) buildEmptyDeepWorkSessionsResponse(filter entity.DeepWorkSessionsFilter) *entity.DeepWorkSessionsResponse {
+	return &entity.DeepWorkSessionsResponse{
+		UserID:    filter.UserID,
+		StartTime: filter.StartTime,
+		EndTime:   filter.EndTime,
+		Period:    utils.FormatPeriod(filter.StartTime, filter.EndTime),
+		Sessions:  []entity.DeepWorkSession{},
+		ContextSwitches: entity.ContextSwitchesStats{
+			TotalSwitches:      0,
+			AvgSwitchesPerHour: 0,
+			HighFocusBlocks:    0,
+			MediumFocusBlocks:  0,
+			LowFocusBlocks:     0,
+		},
+	}
+}
+
+func (r *metricsRepository) buildDeepWorkSessionsResponse(filter entity.DeepWorkSessionsFilter, result deepWorkSessionsResult) *entity.DeepWorkSessionsResponse {
+	var sessions []entity.DeepWorkSession
+	if len(result.SessionsData) > 0 && string(result.SessionsData) != "[]" {
+		if err := json.Unmarshal(result.SessionsData, &sessions); err != nil {
+			sessions = []entity.DeepWorkSession{}
+		}
+	}
+
+	var hourlyBreakdown []entity.HourlyDeepWorkData
+	if len(result.HourlyBreakdownData) > 0 && string(result.HourlyBreakdownData) != "[]" {
+		type hourlyRaw struct {
+			Hour            int     `json:"hour"`
+			Date            string  `json:"date"`
+			Timestamp       string  `json:"timestamp"`
+			TotalMins       int     `json:"total_mins"`
+			Sessions        int     `json:"sessions"`
+			DeepWorkMins    float64 `json:"deep_work_mins"`
+			ContextSwitches int     `json:"context_switches"`
+			SwitchesPerHour float64 `json:"switches_per_hour"`
+			DeepWorkRate    float64 `json:"deep_work_rate"`
+		}
+
+		var rawData []hourlyRaw
+		if err := json.Unmarshal(result.HourlyBreakdownData, &rawData); err == nil {
+			hourlyBreakdown = make([]entity.HourlyDeepWorkData, len(rawData))
+			for i, raw := range rawData {
+				hourlyBreakdown[i] = entity.HourlyDeepWorkData{
+					Hour:            raw.Hour,
+					Date:            raw.Date,
+					Timestamp:       raw.Timestamp,
+					TotalMins:       raw.TotalMins,
+					Sessions:        raw.Sessions,
+					DeepWorkMins:    int(raw.DeepWorkMins),
+					ContextSwitches: raw.ContextSwitches,
+					SwitchesPerHour: utils.RoundToTwoDecimals(raw.SwitchesPerHour),
+					DeepWorkRate:    utils.RoundToTwoDecimals(raw.DeepWorkRate),
+				}
+			}
+		}
+	}
+
+	var deepWorkRate float64
+	if result.TotalTrackedMinutes > 0 {
+		deepWorkRate = utils.RoundToTwoDecimals((result.TotalMinutes / float64(result.TotalTrackedMinutes)) * 100)
+	}
+
+	return &entity.DeepWorkSessionsResponse{
+		UserID:    filter.UserID,
+		StartTime: filter.StartTime,
+		EndTime:   filter.EndTime,
+		Period:    utils.FormatPeriod(filter.StartTime, filter.EndTime),
+
+		SessionsCount:  result.SessionsCount,
+		TotalMinutes:   utils.RoundToTwoDecimals(result.TotalMinutes),
+		TotalHours:     utils.RoundToTwoDecimals(result.TotalMinutes / 60),
+		AverageMinutes: utils.RoundToTwoDecimals(result.AverageMinutes),
+		LongestMinutes: utils.RoundToTwoDecimals(result.LongestMinutes),
+		DeepWorkRate:   deepWorkRate,
+
+		ContextSwitches: entity.ContextSwitchesStats{
+			TotalSwitches:      result.TotalContextSwitches,
+			AvgSwitchesPerHour: utils.RoundToTwoDecimals(result.AvgSwitchesPerHour),
+			HighFocusBlocks:    result.HighFocusBlocks,
+			MediumFocusBlocks:  result.MediumFocusBlocks,
+			LowFocusBlocks:     result.LowFocusBlocks,
+		},
+
+		DeepWorkContextRatio: utils.RoundToTwoDecimals(result.DeepWorkContextRatio),
+		Sessions:             sessions,
+		HourlyBreakdown:      hourlyBreakdown,
+	}
 }

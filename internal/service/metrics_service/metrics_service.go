@@ -109,3 +109,7 @@ func (s *MetricsService) GetTopDomains(ctx context.Context, filter entity.TopDom
 
 	return s.repo.GetTopDomains(ctx, filter)
 }
+
+func (s *MetricsService) GetDeepWorkSessions(ctx context.Context, filter entity.DeepWorkSessionsFilter) (*entity.DeepWorkSessionsResponse, error) {
+	return s.repo.GetDeepWorkSessions(ctx, filter)
+}

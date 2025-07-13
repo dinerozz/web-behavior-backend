@@ -8,6 +8,24 @@ definitions:
     required:
     - events
     type: object
+  entity.ContextSwitchesStats:
+    properties:
+      avg_switches_per_hour:
+        example: 3.75
+        type: number
+      high_focus_blocks:
+        example: 2
+        type: integer
+      low_focus_blocks:
+        example: 0
+        type: integer
+      medium_focus_blocks:
+        example: 1
+        type: integer
+      total_switches:
+        example: 8
+        type: integer
+    type: object
   entity.CreateExtensionUserRequest:
     properties:
       username:
@@ -77,6 +95,83 @@ definitions:
         type: number
       sessions:
         type: integer
+    type: object
+  entity.DeepWorkSession:
+    properties:
+      block_id:
+        example: 1
+        type: integer
+      context_switches:
+        example: 2
+        type: integer
+      duration_minutes:
+        example: 45.3
+        type: number
+      end_time:
+        example: "2025-07-10T15:00:00Z"
+        type: string
+      focus_level:
+        enum:
+        - high
+        - medium
+        - low
+        example: high
+        type: string
+      start_time:
+        example: "2025-07-10T14:15:00Z"
+        type: string
+      switches_per_hour:
+        example: 2.64
+        type: number
+      total_events:
+        example: 342
+        type: integer
+    type: object
+  entity.DeepWorkSessionsResponse:
+    properties:
+      average_minutes:
+        example: 42.5
+        type: number
+      context_switches:
+        $ref: '#/definitions/entity.ContextSwitchesStats'
+      deep_work_context_ratio:
+        example: 0.375
+        type: number
+      deep_work_rate:
+        example: 59.64
+        type: number
+      end_time:
+        example: "2025-07-11T19:59:59Z"
+        type: string
+      hourly_breakdown:
+        items:
+          $ref: '#/definitions/entity.HourlyDeepWorkData'
+        type: array
+      longest_minutes:
+        example: 65.2
+        type: number
+      period:
+        example: 2025-07-10 08:00 - 2025-07-11 19:59
+        type: string
+      sessions:
+        items:
+          $ref: '#/definitions/entity.DeepWorkSession'
+        type: array
+      sessions_count:
+        example: 3
+        type: integer
+      start_time:
+        example: "2025-07-10T08:00:00Z"
+        type: string
+      total_hours:
+        example: 2.13
+        type: number
+      total_minutes:
+        example: 127.5
+        type: number
+      user_id:
+        example: 39b962b6-d4fa-49a6-8f3e-e4ff9b6bb0df
+        type: string
     type: object
   entity.DetailedAnalysis:
     properties:
@@ -260,6 +355,36 @@ definitions:
         type: string
       total_mins:
         description: общее время в этом часе
+        type: integer
+    type: object
+  entity.HourlyDeepWorkData:
+    properties:
+      context_switches:
+        example: 3
+        type: integer
+      date:
+        example: "2025-07-13"
+        type: string
+      deep_work_mins:
+        example: 45
+        type: integer
+      deep_work_rate:
+        example: 75
+        type: number
+      hour:
+        example: 17
+        type: integer
+      sessions:
+        example: 5
+        type: integer
+      switches_per_hour:
+        example: 4.5
+        type: number
+      timestamp:
+        example: 5:00 PM
+        type: string
+      total_mins:
+        example: 60
         type: integer
     type: object
   entity.PaginatedResponse:
@@ -534,6 +659,54 @@ paths:
       summary: Get top domains for user (all time)
       tags:
       - /api/v1/admin/metrics
+  /api/v1/metrics/deep-work-sessions:
+    get:
+      consumes:
+      - application/json
+      description: Analyze user's deep work sessions (25+ minute focused work blocks)
+        and context switches. Deep Work Sessions are continuous activity blocks lasting
+        25+ minutes with gaps no longer than 5 minutes between active events (click,
+        keydown, scrollend). Context Switches are measured as domain changes within
+        each deep work block.
+      parameters:
+      - description: User ID
+        in: query
+        name: user_id
+        required: true
+        type: string
+      - description: Start time (RFC3339 format)
+        in: query
+        name: start_time
+        required: true
+        type: string
+      - description: End time (RFC3339 format)
+        in: query
+        name: end_time
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/entity.DeepWorkSessionsResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get Deep Work Sessions Analysis
+      tags:
+      - Metrics
   /behaviors:
     get:
       consumes:
