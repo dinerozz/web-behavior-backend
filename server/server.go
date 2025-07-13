@@ -138,7 +138,7 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 		if origin != "" && (strings.HasPrefix(origin, "http://localhost:") ||
 			strings.HasPrefix(origin, "http://127.0.0.1:")) {
 			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
-		} else if origin == "https://web-behavior.space" {
+		} else if origin == "https://inayla.com" {
 			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
 		} else {
 			c.Writer.Header().Set("Access-Control-Allow-Origin", "")
