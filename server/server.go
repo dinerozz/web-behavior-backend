@@ -190,8 +190,6 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 		publicAdminRoutes.POST("/users/auth", routerHandler.userHandler.CreateOrAuthUserWithPassword)
 	}
 
-	fmt.Println("test")
-
 	privateRoutes := r.Group("/api/v1/admin")
 	privateRoutes.Use(middleware.AuthenticationMiddleware())
 	{
