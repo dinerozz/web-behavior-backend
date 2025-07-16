@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS user_behaviors (
     x INTEGER,
     y INTEGER,
 
-    -- Клавиша для событий keydown
+    -- Клавиша для событий keyup
     key VARCHAR(50),
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

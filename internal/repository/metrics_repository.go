@@ -15,7 +15,7 @@ import (
 )
 
 var ActiveEvents = []string{
-	"pageshow", "click", "focus", "keydown",
+	"pageshow", "click", "focus", "keyup", "keydown",
 	"scrollend", "pagehide", "visibility_visible",
 }
 
@@ -858,7 +858,7 @@ WITH active_events AS (
 	WHERE ub.user_id = $1 
 		AND ub.timestamp >= $2 
 		AND ub.timestamp <= $3
-		AND ub.event_type IN ('click', 'keydown', 'scrollend') %s
+		AND ub.event_type IN ('click', 'keyup', 'scrollend') %s
 ),
 gaps_marked AS (
 	SELECT *,
