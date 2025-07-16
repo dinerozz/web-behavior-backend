@@ -5,12 +5,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/dinerozz/web-behavior-backend/internal/entity"
 	"github.com/dinerozz/web-behavior-backend/pkg/utils"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
-	"strings"
-	"time"
 )
 
 var ActiveEvents = []string{
@@ -50,6 +51,8 @@ type deepWorkSessionsResult struct {
 	TotalMinutes         float64         `db:"total_minutes"`
 	AverageMinutes       float64         `db:"average_minutes"`
 	LongestMinutes       float64         `db:"longest_minutes"`
+	ShortestMinutes      float64         `db:"shortest_minutes"`
+	UniqueDomains        int             `db:"unique_domains"`
 	TotalContextSwitches int             `db:"total_context_switches"`
 	AvgSwitchesPerHour   float64         `db:"avg_switches_per_hour"`
 	HighFocusBlocks      int             `db:"high_focus_blocks"`
@@ -933,21 +936,16 @@ hourly_basic_stats AS (
 ),
 hourly_deep_work AS (
 	SELECT 
-		EXTRACT(HOUR FROM timestamp)::integer as hour,
-		DATE(timestamp) as date,
+		EXTRACT(HOUR FROM dwws.start_time)::integer as hour,
+		DATE(dwws.start_time) as date,
 		SUM(
-			CASE 
-				WHEN timestamp BETWEEN dwws.start_time AND dwws.end_time 
-				THEN EXTRACT(EPOCH FROM 
-					LEAST(DATE_TRUNC('hour', timestamp) + INTERVAL '1 hour', dwws.end_time) -
-					GREATEST(DATE_TRUNC('hour', timestamp), dwws.start_time)
-				) / 60.0
-				ELSE 0 
-			END
+			EXTRACT(EPOCH FROM 
+				LEAST(DATE_TRUNC('hour', dwws.start_time) + INTERVAL '1 hour', dwws.end_time) -
+				GREATEST(DATE_TRUNC('hour', dwws.start_time), dwws.start_time)
+			) / 60.0
 		)::numeric as deep_work_minutes
-	FROM numbered_blocks nb
-	JOIN deep_work_with_switches dwws ON nb.block_id = dwws.block_id
-	GROUP BY EXTRACT(HOUR FROM timestamp), DATE(timestamp)
+	FROM deep_work_with_switches dwws
+	GROUP BY EXTRACT(HOUR FROM dwws.start_time), DATE(dwws.start_time)
 ),
 hourly_context_switches AS (
 	SELECT 
@@ -1001,6 +999,9 @@ aggregated_stats AS (
 		COALESCE(SUM(duration_minutes), 0::numeric) as total_minutes,
 		COALESCE(AVG(duration_minutes), 0::numeric) as average_minutes,
 		COALESCE(MAX(duration_minutes), 0::numeric) as longest_minutes,
+		COALESCE(MIN(duration_minutes), 0::numeric) as shortest_minutes,
+		(SELECT COUNT(DISTINCT domain) FROM numbered_blocks nb 
+		 WHERE nb.block_id IN (SELECT block_id FROM deep_work_blocks))::integer as unique_domains,
 		COALESCE(SUM(context_switches), 0)::integer as total_context_switches,
 		COALESCE(AVG(switches_per_hour), 0::numeric) as avg_switches_per_hour,
 		COUNT(CASE WHEN focus_level = 'high' THEN 1 END)::integer as high_focus_blocks,
@@ -1062,6 +1063,8 @@ SELECT
 	COALESCE(ag.total_minutes, 0::numeric) as total_minutes,
 	COALESCE(ag.average_minutes, 0::numeric) as average_minutes,
 	COALESCE(ag.longest_minutes, 0::numeric) as longest_minutes,
+	COALESCE(ag.shortest_minutes, 0::numeric) as shortest_minutes,
+	COALESCE(ag.unique_domains, 0) as unique_domains,
 	COALESCE(ag.total_context_switches, 0) as total_context_switches,
 	COALESCE(ag.avg_switches_per_hour, 0::numeric) as avg_switches_per_hour,
 	COALESCE(ag.high_focus_blocks, 0) as high_focus_blocks,
@@ -1172,12 +1175,14 @@ func (r *metricsRepository) buildDeepWorkSessionsResponse(filter entity.DeepWork
 		EndTime:   filter.EndTime,
 		Period:    utils.FormatPeriod(filter.StartTime, filter.EndTime),
 
-		SessionsCount:  result.SessionsCount,
-		TotalMinutes:   utils.RoundToTwoDecimals(result.TotalMinutes),
-		TotalHours:     utils.RoundToTwoDecimals(result.TotalMinutes / 60),
-		AverageMinutes: utils.RoundToTwoDecimals(result.AverageMinutes),
-		LongestMinutes: utils.RoundToTwoDecimals(result.LongestMinutes),
-		DeepWorkRate:   deepWorkRate,
+		SessionsCount:   result.SessionsCount,
+		TotalMinutes:    utils.RoundToTwoDecimals(result.TotalMinutes),
+		TotalHours:      utils.RoundToTwoDecimals(result.TotalMinutes / 60),
+		AverageMinutes:  utils.RoundToTwoDecimals(result.AverageMinutes),
+		LongestMinutes:  utils.RoundToTwoDecimals(result.LongestMinutes),
+		ShortestMinutes: utils.RoundToTwoDecimals(result.ShortestMinutes),
+		UniqueDomains:   result.UniqueDomains,
+		DeepWorkRate:    deepWorkRate,
 
 		ContextSwitches: entity.ContextSwitchesStats{
 			TotalSwitches:      result.TotalContextSwitches,
