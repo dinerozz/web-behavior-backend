@@ -73,12 +73,13 @@ func RunServer(config *config.Config) {
 
 	aiService := aiAnalyticsService.NewAIAnalyticsService("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")
 
-	userMetricsService := metricsService.NewMetricsService(userMetricsRepo)
+	userMetricsService := metricsService.NewMetricsService(userMetricsRepo, aiService)
 
 	userHandler := userHandler.NewUserHandler(userSrv)
 	userBehaviorHandler := handler.NewUserBehaviorHandler(userBehaviorService)
 	userExtensionHandler := userExtensionHandler.NewExtensionUserHandler(userExtensionService)
 	userMetricsHandler := metrics.NewMetricsHandler(userMetricsService)
+
 	aiAnalyticsHandler := aiHandler.NewAIAnalyticsHandler(aiService)
 
 	routerHandler := &RouterHandler{

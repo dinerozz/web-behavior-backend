@@ -22,7 +22,7 @@ type MetricsService interface {
 	GetEngagedTime(ctx context.Context, filter entity.EngagedTimeFilter) (*entity.EngagedTimeMetric, error)
 	GetTopDomains(ctx context.Context, filter entity.TopDomainsFilter) (*entity.TopDomainsResponse, error)
 	GetDeepWorkSessions(ctx context.Context, filter entity.DeepWorkSessionsFilter) (*entity.DeepWorkSessionsResponse, error)
-	PrepareAIAnalyticsData(ctx context.Context, filter entity.EngagedTimeFilter) (*entity.AIAnalyticsRequest, error)
+	//PrepareAIAnalyticsData(ctx context.Context, filter entity.EngagedTimeFilter) (*entity.AIAnalyticsRequest, error)
 }
 
 func NewMetricsHandler(service MetricsService) *MetricsHandler {
@@ -132,7 +132,6 @@ func (h *MetricsHandler) GetTrackedTimeTotal(c *gin.Context) {
 	})
 }
 
-// GetEngagedTime теперь без AI анализа
 func (h *MetricsHandler) GetEngagedTime(c *gin.Context) {
 	var filter entity.EngagedTimeFilter
 
@@ -203,89 +202,89 @@ func (h *MetricsHandler) GetEngagedTime(c *gin.Context) {
 	})
 }
 
-// PrepareAIAnalyticsData новый эндпоинт для подготовки данных для AI анализа
-// @Summary      Prepare data for AI analytics
-// @Description  Get prepared data for AI analytics based on engaged time metrics
-// @Tags         /api/v1/admin/metrics
-// @Accept       json
-// @Produce      json
-// @Param        user_id      query     string  true   "User ID"
-// @Param        start_time   query     string  true   "Start time (RFC3339 format)"
-// @Param        end_time     query     string  true   "End time (RFC3339 format)"
-// @Param        session_id   query     string  false  "Specific session ID"
-// @Success      200          {object}  wrapper.ResponseWrapper{data=entity.AIAnalyticsRequest}
-// @Failure      400          {object}  wrapper.ErrorWrapper
-// @Failure      500          {object}  wrapper.ErrorWrapper
-// @Router       /metrics/ai-analytics-data [get]
-func (h *MetricsHandler) PrepareAIAnalyticsData(c *gin.Context) {
-	var filter entity.EngagedTimeFilter
-
-	filter.UserID = c.Query("user_id")
-	if filter.UserID == "" {
-		c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
-			Message: "user_id is required",
-			Success: false,
-		})
-		return
-	}
-
-	startTimeStr := c.Query("start_time")
-	if startTimeStr == "" {
-		c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
-			Message: "start_time is required (RFC3339 format)",
-			Success: false,
-		})
-		return
-	}
-
-	endTimeStr := c.Query("end_time")
-	if endTimeStr == "" {
-		c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
-			Message: "end_time is required (RFC3339 format)",
-			Success: false,
-		})
-		return
-	}
-
-	startTime, err := time.Parse(time.RFC3339, startTimeStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
-			Message: "Invalid start_time format, use RFC3339",
-			Success: false,
-		})
-		return
-	}
-
-	endTime, err := time.Parse(time.RFC3339, endTimeStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
-			Message: "Invalid end_time format, use RFC3339",
-			Success: false,
-		})
-		return
-	}
-
-	filter.StartTime = startTime
-	filter.EndTime = endTime
-
-	if sessionID := c.Query("session_id"); sessionID != "" {
-		filter.SessionID = &sessionID
-	}
-
-	analyticsData, err := h.service.PrepareAIAnalyticsData(c.Request.Context(), filter)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{
-			Message: err.Error(),
-			Success: false,
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, wrapper.ResponseWrapper{
-		Data:    analyticsData,
-		Success: true,
-	})
-}
+//// PrepareAIAnalyticsData новый эндпоинт для подготовки данных для AI анализа
+//// @Summary      Prepare data for AI analytics
+//// @Description  Get prepared data for AI analytics based on engaged time metrics
+//// @Tags         /api/v1/admin/metrics
+//// @Accept       json
+//// @Produce      json
+//// @Param        user_id      query     string  true   "User ID"
+//// @Param        start_time   query     string  true   "Start time (RFC3339 format)"
+//// @Param        end_time     query     string  true   "End time (RFC3339 format)"
+//// @Param        session_id   query     string  false  "Specific session ID"
+//// @Success      200          {object}  wrapper.ResponseWrapper{data=entity.AIAnalyticsRequest}
+//// @Failure      400          {object}  wrapper.ErrorWrapper
+//// @Failure      500          {object}  wrapper.ErrorWrapper
+//// @Router       /metrics/ai-analytics-data [get]
+//func (h *MetricsHandler) PrepareAIAnalyticsData(c *gin.Context) {
+//	var filter entity.EngagedTimeFilter
+//
+//	filter.UserID = c.Query("user_id")
+//	if filter.UserID == "" {
+//		c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
+//			Message: "user_id is required",
+//			Success: false,
+//		})
+//		return
+//	}
+//
+//	startTimeStr := c.Query("start_time")
+//	if startTimeStr == "" {
+//		c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
+//			Message: "start_time is required (RFC3339 format)",
+//			Success: false,
+//		})
+//		return
+//	}
+//
+//	endTimeStr := c.Query("end_time")
+//	if endTimeStr == "" {
+//		c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
+//			Message: "end_time is required (RFC3339 format)",
+//			Success: false,
+//		})
+//		return
+//	}
+//
+//	startTime, err := time.Parse(time.RFC3339, startTimeStr)
+//	if err != nil {
+//		c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
+//			Message: "Invalid start_time format, use RFC3339",
+//			Success: false,
+//		})
+//		return
+//	}
+//
+//	endTime, err := time.Parse(time.RFC3339, endTimeStr)
+//	if err != nil {
+//		c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
+//			Message: "Invalid end_time format, use RFC3339",
+//			Success: false,
+//		})
+//		return
+//	}
+//
+//	filter.StartTime = startTime
+//	filter.EndTime = endTime
+//
+//	if sessionID := c.Query("session_id"); sessionID != "" {
+//		filter.SessionID = &sessionID
+//	}
+//
+//	analyticsData, err := h.service.PrepareAIAnalyticsData(c.Request.Context(), filter)
+//	if err != nil {
+//		c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{
+//			Message: err.Error(),
+//			Success: false,
+//		})
+//		return
+//	}
+//
+//	c.JSON(http.StatusOK, wrapper.ResponseWrapper{
+//		Data:    analyticsData,
+//		Success: true,
+//	})
+//}
 
 // GetTopDomains остается без изменений
 func (h *MetricsHandler) GetTopDomains(c *gin.Context) {
@@ -430,7 +429,7 @@ func (h *MetricsHandler) RegisterRoutes(router *gin.RouterGroup) {
 		metrics.GET("/tracked-time", h.GetTrackedTime)
 		metrics.GET("/tracked-time-total", h.GetTrackedTimeTotal)
 		metrics.GET("/engaged-time", h.GetEngagedTime)
-		metrics.GET("/ai-analytics-data", h.PrepareAIAnalyticsData) // Новый эндпоинт
+		//metrics.GET("/ai-analytics-data", h.PrepareAIAnalyticsData) // Новый эндпоинт
 		metrics.GET("/top-domains", h.GetTopDomains)
 		metrics.GET("/deep-work-sessions", h.GetDeepWorkSessions)
 	}

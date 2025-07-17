@@ -1281,54 +1281,6 @@ paths:
       summary: Get extension users statistics
       tags:
       - /api/v1/admin/extension
-  /metrics/ai-analytics-data:
-    get:
-      consumes:
-      - application/json
-      description: Get prepared data for AI analytics based on engaged time metrics
-      parameters:
-      - description: User ID
-        in: query
-        name: user_id
-        required: true
-        type: string
-      - description: Start time (RFC3339 format)
-        in: query
-        name: start_time
-        required: true
-        type: string
-      - description: End time (RFC3339 format)
-        in: query
-        name: end_time
-        required: true
-        type: string
-      - description: Specific session ID
-        in: query
-        name: session_id
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/wrapper.ResponseWrapper'
-            - properties:
-                data:
-                  $ref: '#/definitions/entity.AIAnalyticsRequest'
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/wrapper.ErrorWrapper'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/wrapper.ErrorWrapper'
-      summary: Prepare data for AI analytics
-      tags:
-      - /api/v1/admin/metrics
   /users/auth:
     post:
       consumes:
