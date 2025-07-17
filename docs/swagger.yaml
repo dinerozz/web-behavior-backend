@@ -1,4 +1,36 @@
 definitions:
+  entity.AIAnalyticsRequest:
+    properties:
+      deep_work:
+        $ref: '#/definitions/entity.DeepWorkData'
+      domains:
+        items:
+          type: string
+        minItems: 1
+        type: array
+      domains_count:
+        minimum: 1
+        type: integer
+      engagement_rate:
+        maximum: 100
+        minimum: 0
+        type: number
+      period:
+        type: string
+      timestamp:
+        type: string
+      tracked_hours:
+        minimum: 0
+        type: number
+      user_id:
+        type: string
+    required:
+    - deep_work
+    - domains
+    - domains_count
+    - engagement_rate
+    - tracked_hours
+    type: object
   entity.BatchCreateUserBehaviorRequest:
     properties:
       events:
@@ -7,24 +39,6 @@ definitions:
         type: array
     required:
     - events
-    type: object
-  entity.ContextSwitchesStats:
-    properties:
-      avg_switches_per_hour:
-        example: 3.75
-        type: number
-      high_focus_blocks:
-        example: 2
-        type: integer
-      low_focus_blocks:
-        example: 0
-        type: integer
-      medium_focus_blocks:
-        example: 1
-        type: integer
-      total_switches:
-        example: 8
-        type: integer
     type: object
   entity.CreateExtensionUserRequest:
     properties:
@@ -96,83 +110,6 @@ definitions:
       sessions:
         type: integer
     type: object
-  entity.DeepWorkSession:
-    properties:
-      block_id:
-        example: 1
-        type: integer
-      context_switches:
-        example: 2
-        type: integer
-      duration_minutes:
-        example: 45.3
-        type: number
-      end_time:
-        example: "2025-07-10T15:00:00Z"
-        type: string
-      focus_level:
-        enum:
-        - high
-        - medium
-        - low
-        example: high
-        type: string
-      start_time:
-        example: "2025-07-10T14:15:00Z"
-        type: string
-      switches_per_hour:
-        example: 2.64
-        type: number
-      total_events:
-        example: 342
-        type: integer
-    type: object
-  entity.DeepWorkSessionsResponse:
-    properties:
-      average_minutes:
-        example: 42.5
-        type: number
-      context_switches:
-        $ref: '#/definitions/entity.ContextSwitchesStats'
-      deep_work_context_ratio:
-        example: 0.375
-        type: number
-      deep_work_rate:
-        example: 59.64
-        type: number
-      end_time:
-        example: "2025-07-11T19:59:59Z"
-        type: string
-      hourly_breakdown:
-        items:
-          $ref: '#/definitions/entity.HourlyDeepWorkData'
-        type: array
-      longest_minutes:
-        example: 65.2
-        type: number
-      period:
-        example: 2025-07-10 08:00 - 2025-07-11 19:59
-        type: string
-      sessions:
-        items:
-          $ref: '#/definitions/entity.DeepWorkSession'
-        type: array
-      sessions_count:
-        example: 3
-        type: integer
-      start_time:
-        example: "2025-07-10T08:00:00Z"
-        type: string
-      total_hours:
-        example: 2.13
-        type: number
-      total_minutes:
-        example: 127.5
-        type: number
-      user_id:
-        example: 39b962b6-d4fa-49a6-8f3e-e4ff9b6bb0df
-        type: string
-    type: object
   entity.DetailedAnalysis:
     properties:
       behavior_insights:
@@ -187,6 +124,21 @@ definitions:
         type: array
       productivity_score:
         $ref: '#/definitions/entity.ProductivityScore'
+    type: object
+  entity.DomainAnalysis:
+    properties:
+      analysis:
+        $ref: '#/definitions/entity.DetailedAnalysis'
+      focus_insight:
+        type: string
+      focus_level:
+        type: string
+      recommendations:
+        items:
+          type: string
+        type: array
+      work_pattern:
+        type: string
     type: object
   entity.DomainBreakdown:
     properties:
@@ -215,65 +167,6 @@ definitions:
         items:
           type: string
         type: array
-    type: object
-  entity.EngagedTimeMetric:
-    properties:
-      active_events:
-        type: integer
-      active_hours:
-        type: number
-      active_minutes:
-        type: integer
-      analysis:
-        $ref: '#/definitions/entity.DetailedAnalysis'
-      deep_work:
-        $ref: '#/definitions/entity.DeepWorkData'
-      domains_list:
-        items:
-          type: string
-        type: array
-      end_time:
-        type: string
-      engagement_rate:
-        type: number
-      focus_insight:
-        type: string
-      focus_level:
-        description: '"high", "medium", "low"'
-        type: string
-      hourly_breakdown:
-        items:
-          $ref: '#/definitions/entity.HourlyData'
-        type: array
-      period:
-        type: string
-      recommendations:
-        items:
-          type: string
-        type: array
-      sessions:
-        type: integer
-      start_time:
-        type: string
-      tracked_hours:
-        type: number
-      tracked_minutes:
-        type: number
-      unique_domains_count:
-        type: integer
-      user_id:
-        type: string
-      work_pattern:
-        type: string
-    type: object
-  entity.EngagedTimeResponse:
-    properties:
-      data:
-        $ref: '#/definitions/entity.EngagedTimeMetric'
-      message:
-        type: string
-      success:
-        type: boolean
     type: object
   entity.EventTypes:
     properties:
@@ -327,65 +220,17 @@ definitions:
       usersUsedToday:
         type: integer
     type: object
-  entity.HourlyData:
+  entity.FocusLevelResponse:
     properties:
-      date:
-        description: '"2025-07-10"'
+      focus_level:
         type: string
-      engaged_mins:
-        description: активные минуты в этом часе
-        type: integer
-      events:
-        description: количество событий
-        type: integer
-      hour:
-        description: час (0-23)
-        type: integer
-      idle_mins:
-        description: неактивные минуты в этом часе
-        type: integer
-      productivity:
-        description: engaged_mins / total_mins * 100
-        type: number
-      sessions:
-        description: количество сессий
-        type: integer
+      insight:
+        type: string
+      method:
+        description: '"ai" или "fallback"'
+        type: string
       timestamp:
-        description: '"8:00 AM", "9:00 AM"'
         type: string
-      total_mins:
-        description: общее время в этом часе
-        type: integer
-    type: object
-  entity.HourlyDeepWorkData:
-    properties:
-      context_switches:
-        example: 3
-        type: integer
-      date:
-        example: "2025-07-13"
-        type: string
-      deep_work_mins:
-        example: 45
-        type: integer
-      deep_work_rate:
-        example: 75
-        type: number
-      hour:
-        example: 17
-        type: integer
-      sessions:
-        example: 5
-        type: integer
-      switches_per_hour:
-        example: 4.5
-        type: number
-      timestamp:
-        example: 5:00 PM
-        type: string
-      total_mins:
-        example: 60
-        type: integer
     type: object
   entity.PaginatedResponse:
     properties:
@@ -461,32 +306,6 @@ definitions:
         type: string
       userName:
         type: string
-    type: object
-  entity.TrackedTimeMetric:
-    properties:
-      end_time:
-        type: string
-      period:
-        type: string
-      sessions:
-        type: integer
-      start_time:
-        type: string
-      total_hours:
-        type: number
-      total_minutes:
-        type: number
-      user_id:
-        type: string
-    type: object
-  entity.TrackedTimeResponse:
-    properties:
-      data:
-        $ref: '#/definitions/entity.TrackedTimeMetric'
-      message:
-        type: string
-      success:
-        type: boolean
     type: object
   entity.URLStats:
     properties:
@@ -622,32 +441,31 @@ definitions:
 info:
   contact: {}
 paths:
-  /api/v1/admin/metrics/top-domains:
-    get:
+  /ai-analytics/domain-usage:
+    post:
       consumes:
       - application/json
-      description: Retrieve top visited domains for a specific user for all time
+      description: Get AI-powered analysis of user's domain usage patterns, productivity
+        insights, and recommendations
       parameters:
-      - description: User ID
-        in: query
-        name: user_id
+      - description: Analytics request data
+        in: body
+        name: request
         required: true
-        type: string
-      - description: Number of top domains to return (max 50, default 10)
-        in: query
-        name: limit
-        type: integer
-      - description: Optional session ID filter
-        in: query
-        name: session_id
-        type: string
+        schema:
+          $ref: '#/definitions/entity.AIAnalyticsRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/wrapper.SuccessWrapper'
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/entity.DomainAnalysis'
+              type: object
         "400":
           description: Bad Request
           schema:
@@ -656,9 +474,40 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/wrapper.ErrorWrapper'
-      summary: Get top domains for user (all time)
+      summary: Analyze domain usage with AI
       tags:
-      - /api/v1/admin/metrics
+      - /api/v1/admin/ai-analytics
+  /ai-analytics/focus-level:
+    get:
+      consumes:
+      - application/json
+      description: Get basic focus level assessment based on domain count (fallback
+        method)
+      parameters:
+      - description: Number of unique domains
+        in: query
+        name: domains_count
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/entity.FocusLevelResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get focus level without AI
+      tags:
+      - /api/v1/admin/ai-analytics
   /behaviors:
     get:
       consumes:
@@ -1432,15 +1281,11 @@ paths:
       summary: Get extension users statistics
       tags:
       - /api/v1/admin/extension
-  /metrics/deep-work-sessions:
+  /metrics/ai-analytics-data:
     get:
       consumes:
       - application/json
-      description: Analyze user's deep work sessions (25+ minute focused work blocks)
-        and context switches. Deep Work Sessions are continuous activity blocks lasting
-        25+ minutes with gaps no longer than 5 minutes between active events (click,
-        keydown, scrollend). Context Switches are measured as domain changes within
-        each deep work block.
+      description: Get prepared data for AI analytics based on engaged time metrics
       parameters:
       - description: User ID
         in: query
@@ -1456,6 +1301,10 @@ paths:
         in: query
         name: end_time
         required: true
+        type: string
+      - description: Specific session ID
+        in: query
+        name: session_id
         type: string
       produces:
       - application/json
@@ -1467,7 +1316,7 @@ paths:
             - $ref: '#/definitions/wrapper.ResponseWrapper'
             - properties:
                 data:
-                  $ref: '#/definitions/entity.DeepWorkSessionsResponse'
+                  $ref: '#/definitions/entity.AIAnalyticsRequest'
               type: object
         "400":
           description: Bad Request
@@ -1477,127 +1326,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/wrapper.ErrorWrapper'
-      summary: Get Deep Work Sessions Analysis
-      tags:
-      - /api/v1/admin/metrics
-  /metrics/engaged-time:
-    get:
-      consumes:
-      - application/json
-      description: Calculate engaged time (active minutes) and tracked time with engagement
-        rate for a user
-      parameters:
-      - description: User ID
-        in: query
-        name: user_id
-        required: true
-        type: string
-      - description: Start time (RFC3339 format)
-        in: query
-        name: start_time
-        required: true
-        type: string
-      - description: End time (RFC3339 format)
-        in: query
-        name: end_time
-        required: true
-        type: string
-      - description: Specific session ID
-        in: query
-        name: session_id
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/entity.EngagedTimeResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/wrapper.ErrorWrapper'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/wrapper.ErrorWrapper'
-      summary: Get engaged time metric with tracked time data
-      tags:
-      - /api/v1/admin/metrics
-  /metrics/tracked-time:
-    get:
-      consumes:
-      - application/json
-      description: Calculate tracked time (sum of session durations) for a user
-      parameters:
-      - description: User ID
-        in: query
-        name: user_id
-        required: true
-        type: string
-      - description: Start time (RFC3339 format)
-        in: query
-        name: start_time
-        required: true
-        type: string
-      - description: End time (RFC3339 format)
-        in: query
-        name: end_time
-        required: true
-        type: string
-      - description: Specific session ID
-        in: query
-        name: session_id
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/entity.TrackedTimeResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/wrapper.ErrorWrapper'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/wrapper.ErrorWrapper'
-      summary: Get tracked time metric
-      tags:
-      - /api/v1/admin/metrics
-  /metrics/tracked-time-total:
-    get:
-      consumes:
-      - application/json
-      description: Calculate total time from first to last event for a user
-      parameters:
-      - description: User ID
-        in: query
-        name: user_id
-        required: true
-        type: string
-      - description: Specific session ID
-        in: query
-        name: session_id
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/entity.TrackedTimeResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/wrapper.ErrorWrapper'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/wrapper.ErrorWrapper'
-      summary: Get total tracked time metric
+      summary: Prepare data for AI analytics
       tags:
       - /api/v1/admin/metrics
   /users/auth:

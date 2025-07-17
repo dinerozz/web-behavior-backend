@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/dinerozz/web-behavior-backend/config"
 	"github.com/dinerozz/web-behavior-backend/docs"
+	aiHandler "github.com/dinerozz/web-behavior-backend/internal/handler/ai-analytics"
 	userExtensionHandler "github.com/dinerozz/web-behavior-backend/internal/handler/extension_user"
 	"github.com/dinerozz/web-behavior-backend/internal/handler/metrics"
 	userHandler "github.com/dinerozz/web-behavior-backend/internal/handler/user"
@@ -36,6 +37,7 @@ type RouterHandler struct {
 	userExtensionHandler *userExtensionHandler.ExtensionUserHandler
 	userExtensionService extensionUserService.ExtensionUserService
 	userMetricsHandler   *metrics.MetricsHandler
+	aiAnalyticsHandler   *aiHandler.AIAnalyticsHandler
 }
 
 func RunServer(config *config.Config) {
@@ -71,12 +73,13 @@ func RunServer(config *config.Config) {
 
 	aiService := aiAnalyticsService.NewAIAnalyticsService("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")
 
-	userMetricsService := metricsService.NewMetricsService(userMetricsRepo, aiService)
+	userMetricsService := metricsService.NewMetricsService(userMetricsRepo)
 
 	userHandler := userHandler.NewUserHandler(userSrv)
 	userBehaviorHandler := handler.NewUserBehaviorHandler(userBehaviorService)
 	userExtensionHandler := userExtensionHandler.NewExtensionUserHandler(userExtensionService)
 	userMetricsHandler := metrics.NewMetricsHandler(userMetricsService)
+	aiAnalyticsHandler := aiHandler.NewAIAnalyticsHandler(aiService)
 
 	routerHandler := &RouterHandler{
 		userHandler:          userHandler,
@@ -84,6 +87,7 @@ func RunServer(config *config.Config) {
 		userExtensionHandler: userExtensionHandler,
 		userExtensionService: userExtensionService,
 		userMetricsHandler:   userMetricsHandler,
+		aiAnalyticsHandler:   aiAnalyticsHandler,
 	}
 
 	r := setupRouter(routerHandler)
@@ -205,6 +209,9 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 		privateRoutes.GET("/behaviors/:id", routerHandler.userBehaviorHandler.GetBehaviorByID)
 		privateRoutes.GET("/behaviors/users/:userId/sessions", routerHandler.userBehaviorHandler.GetUserSessions)
 		privateRoutes.GET("/behaviors/user-events", routerHandler.userBehaviorHandler.GetUserEventsCount)
+
+		privateRoutes.GET("/ai-analytics/domain-usage", routerHandler.aiAnalyticsHandler.AnalyzeDomainUsage)
+		privateRoutes.GET("/ai-analytics/focus-level", routerHandler.aiAnalyticsHandler.AnalyzeDomainUsage)
 
 		privateRoutes.GET("/metrics/tracked-time", routerHandler.userMetricsHandler.GetTrackedTime)
 		privateRoutes.GET("/metrics/tracked-time-total", routerHandler.userMetricsHandler.GetTrackedTimeTotal)

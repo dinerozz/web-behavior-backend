@@ -4,9 +4,9 @@
         "contact": {}
     },
     "paths": {
-        "/api/v1/admin/metrics/top-domains": {
-            "get": {
-                "description": "Retrieve top visited domains for a specific user for all time",
+        "/ai-analytics/domain-usage": {
+            "post": {
+                "description": "Get AI-powered analysis of user's domain usage patterns, productivity insights, and recommendations",
                 "consumes": [
                     "application/json"
                 ],
@@ -14,35 +14,37 @@
                     "application/json"
                 ],
                 "tags": [
-                    "/api/v1/admin/metrics"
+                    "/api/v1/admin/ai-analytics"
                 ],
-                "summary": "Get top domains for user (all time)",
+                "summary": "Analyze domain usage with AI",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "User ID",
-                        "name": "user_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Number of top domains to return (max 50, default 10)",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Optional session ID filter",
-                        "name": "session_id",
-                        "in": "query"
+                        "description": "Analytics request data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/entity.AIAnalyticsRequest"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/wrapper.SuccessWrapper"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wrapper.ResponseWrapper"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/entity.DomainAnalysis"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -53,6 +55,56 @@
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/wrapper.ErrorWrapper"
+                        }
+                    }
+                }
+            }
+        },
+        "/ai-analytics/focus-level": {
+            "get": {
+                "description": "Get basic focus level assessment based on domain count (fallback method)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "/api/v1/admin/ai-analytics"
+                ],
+                "summary": "Get focus level without AI",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Number of unique domains",
+                        "name": "domains_count",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wrapper.ResponseWrapper"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/entity.FocusLevelResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/wrapper.ErrorWrapper"
                         }
@@ -1316,9 +1368,9 @@
                 }
             }
         },
-        "/metrics/deep-work-sessions": {
+        "/metrics/ai-analytics-data": {
             "get": {
-                "description": "Analyze user's deep work sessions (25+ minute focused work blocks) and context switches. Deep Work Sessions are continuous activity blocks lasting 25+ minutes with gaps no longer than 5 minutes between active events (click, keydown, scrollend). Context Switches are measured as domain changes within each deep work block.",
+                "description": "Get prepared data for AI analytics based on engaged time metrics",
                 "consumes": [
                     "application/json"
                 ],
@@ -1328,7 +1380,7 @@
                 "tags": [
                     "/api/v1/admin/metrics"
                 ],
-                "summary": "Get Deep Work Sessions Analysis",
+                "summary": "Prepare data for AI analytics",
                 "parameters": [
                     {
                         "type": "string",
@@ -1350,6 +1402,12 @@
                         "name": "end_time",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Specific session ID",
+                        "name": "session_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1364,189 +1422,11 @@
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/entity.DeepWorkSessionsResponse"
+                                            "$ref": "#/definitions/entity.AIAnalyticsRequest"
                                         }
                                     }
                                 }
                             ]
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/wrapper.ErrorWrapper"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/wrapper.ErrorWrapper"
-                        }
-                    }
-                }
-            }
-        },
-        "/metrics/engaged-time": {
-            "get": {
-                "description": "Calculate engaged time (active minutes) and tracked time with engagement rate for a user",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "/api/v1/admin/metrics"
-                ],
-                "summary": "Get engaged time metric with tracked time data",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "User ID",
-                        "name": "user_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Start time (RFC3339 format)",
-                        "name": "start_time",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "End time (RFC3339 format)",
-                        "name": "end_time",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Specific session ID",
-                        "name": "session_id",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/entity.EngagedTimeResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/wrapper.ErrorWrapper"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/wrapper.ErrorWrapper"
-                        }
-                    }
-                }
-            }
-        },
-        "/metrics/tracked-time": {
-            "get": {
-                "description": "Calculate tracked time (sum of session durations) for a user",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "/api/v1/admin/metrics"
-                ],
-                "summary": "Get tracked time metric",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "User ID",
-                        "name": "user_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Start time (RFC3339 format)",
-                        "name": "start_time",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "End time (RFC3339 format)",
-                        "name": "end_time",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Specific session ID",
-                        "name": "session_id",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/entity.TrackedTimeResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/wrapper.ErrorWrapper"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/wrapper.ErrorWrapper"
-                        }
-                    }
-                }
-            }
-        },
-        "/metrics/tracked-time-total": {
-            "get": {
-                "description": "Calculate total time from first to last event for a user",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "/api/v1/admin/metrics"
-                ],
-                "summary": "Get total tracked time metric",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "User ID",
-                        "name": "user_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Specific session ID",
-                        "name": "session_id",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/entity.TrackedTimeResponse"
                         }
                     },
                     "400": {
@@ -1706,6 +1586,50 @@
         }
     },
     "definitions": {
+        "entity.AIAnalyticsRequest": {
+            "type": "object",
+            "required": [
+                "deep_work",
+                "domains",
+                "domains_count",
+                "engagement_rate",
+                "tracked_hours"
+            ],
+            "properties": {
+                "deep_work": {
+                    "$ref": "#/definitions/entity.DeepWorkData"
+                },
+                "domains": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "domains_count": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "engagement_rate": {
+                    "type": "number",
+                    "maximum": 100,
+                    "minimum": 0
+                },
+                "period": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "tracked_hours": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
         "entity.BatchCreateUserBehaviorRequest": {
             "type": "object",
             "required": [
@@ -1717,31 +1641,6 @@
                     "items": {
                         "$ref": "#/definitions/entity.CreateUserBehaviorRequest"
                     }
-                }
-            }
-        },
-        "entity.ContextSwitchesStats": {
-            "type": "object",
-            "properties": {
-                "avg_switches_per_hour": {
-                    "type": "number",
-                    "example": 3.75
-                },
-                "high_focus_blocks": {
-                    "type": "integer",
-                    "example": 2
-                },
-                "low_focus_blocks": {
-                    "type": "integer",
-                    "example": 0
-                },
-                "medium_focus_blocks": {
-                    "type": "integer",
-                    "example": 1
-                },
-                "total_switches": {
-                    "type": "integer",
-                    "example": 8
                 }
             }
         },
@@ -1846,112 +1745,6 @@
                 }
             }
         },
-        "entity.DeepWorkSession": {
-            "type": "object",
-            "properties": {
-                "block_id": {
-                    "type": "integer",
-                    "example": 1
-                },
-                "context_switches": {
-                    "type": "integer",
-                    "example": 2
-                },
-                "duration_minutes": {
-                    "type": "number",
-                    "example": 45.3
-                },
-                "end_time": {
-                    "type": "string",
-                    "example": "2025-07-10T15:00:00Z"
-                },
-                "focus_level": {
-                    "type": "string",
-                    "enum": [
-                        "high",
-                        "medium",
-                        "low"
-                    ],
-                    "example": "high"
-                },
-                "start_time": {
-                    "type": "string",
-                    "example": "2025-07-10T14:15:00Z"
-                },
-                "switches_per_hour": {
-                    "type": "number",
-                    "example": 2.64
-                },
-                "total_events": {
-                    "type": "integer",
-                    "example": 342
-                }
-            }
-        },
-        "entity.DeepWorkSessionsResponse": {
-            "type": "object",
-            "properties": {
-                "average_minutes": {
-                    "type": "number",
-                    "example": 42.5
-                },
-                "context_switches": {
-                    "$ref": "#/definitions/entity.ContextSwitchesStats"
-                },
-                "deep_work_context_ratio": {
-                    "type": "number",
-                    "example": 0.375
-                },
-                "deep_work_rate": {
-                    "type": "number",
-                    "example": 59.64
-                },
-                "end_time": {
-                    "type": "string",
-                    "example": "2025-07-11T19:59:59Z"
-                },
-                "hourly_breakdown": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/entity.HourlyDeepWorkData"
-                    }
-                },
-                "longest_minutes": {
-                    "type": "number",
-                    "example": 65.2
-                },
-                "period": {
-                    "type": "string",
-                    "example": "2025-07-10 08:00 - 2025-07-11 19:59"
-                },
-                "sessions": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/entity.DeepWorkSession"
-                    }
-                },
-                "sessions_count": {
-                    "type": "integer",
-                    "example": 3
-                },
-                "start_time": {
-                    "type": "string",
-                    "example": "2025-07-10T08:00:00Z"
-                },
-                "total_hours": {
-                    "type": "number",
-                    "example": 2.13
-                },
-                "total_minutes": {
-                    "type": "number",
-                    "example": 127.5
-                },
-                "user_id": {
-                    "type": "string",
-                    "example": "39b962b6-d4fa-49a6-8f3e-e4ff9b6bb0df"
-                }
-            }
-        },
         "entity.DetailedAnalysis": {
             "type": "object",
             "properties": {
@@ -1972,6 +1765,29 @@
                 },
                 "productivity_score": {
                     "$ref": "#/definitions/entity.ProductivityScore"
+                }
+            }
+        },
+        "entity.DomainAnalysis": {
+            "type": "object",
+            "properties": {
+                "analysis": {
+                    "$ref": "#/definitions/entity.DetailedAnalysis"
+                },
+                "focus_insight": {
+                    "type": "string"
+                },
+                "focus_level": {
+                    "type": "string"
+                },
+                "recommendations": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "work_pattern": {
+                    "type": "string"
                 }
             }
         },
@@ -2012,95 +1828,6 @@
                     "items": {
                         "type": "string"
                     }
-                }
-            }
-        },
-        "entity.EngagedTimeMetric": {
-            "type": "object",
-            "properties": {
-                "active_events": {
-                    "type": "integer"
-                },
-                "active_hours": {
-                    "type": "number"
-                },
-                "active_minutes": {
-                    "type": "integer"
-                },
-                "analysis": {
-                    "$ref": "#/definitions/entity.DetailedAnalysis"
-                },
-                "deep_work": {
-                    "$ref": "#/definitions/entity.DeepWorkData"
-                },
-                "domains_list": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "end_time": {
-                    "type": "string"
-                },
-                "engagement_rate": {
-                    "type": "number"
-                },
-                "focus_insight": {
-                    "type": "string"
-                },
-                "focus_level": {
-                    "description": "\"high\", \"medium\", \"low\"",
-                    "type": "string"
-                },
-                "hourly_breakdown": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/entity.HourlyData"
-                    }
-                },
-                "period": {
-                    "type": "string"
-                },
-                "recommendations": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "sessions": {
-                    "type": "integer"
-                },
-                "start_time": {
-                    "type": "string"
-                },
-                "tracked_hours": {
-                    "type": "number"
-                },
-                "tracked_minutes": {
-                    "type": "number"
-                },
-                "unique_domains_count": {
-                    "type": "integer"
-                },
-                "user_id": {
-                    "type": "string"
-                },
-                "work_pattern": {
-                    "type": "string"
-                }
-            }
-        },
-        "entity.EngagedTimeResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/entity.EngagedTimeMetric"
-                },
-                "message": {
-                    "type": "string"
-                },
-                "success": {
-                    "type": "boolean"
                 }
             }
         },
@@ -2184,85 +1911,21 @@
                 }
             }
         },
-        "entity.HourlyData": {
+        "entity.FocusLevelResponse": {
             "type": "object",
             "properties": {
-                "date": {
-                    "description": "\"2025-07-10\"",
+                "focus_level": {
                     "type": "string"
                 },
-                "engaged_mins": {
-                    "description": "активные минуты в этом часе",
-                    "type": "integer"
-                },
-                "events": {
-                    "description": "количество событий",
-                    "type": "integer"
-                },
-                "hour": {
-                    "description": "час (0-23)",
-                    "type": "integer"
-                },
-                "idle_mins": {
-                    "description": "неактивные минуты в этом часе",
-                    "type": "integer"
-                },
-                "productivity": {
-                    "description": "engaged_mins / total_mins * 100",
-                    "type": "number"
-                },
-                "sessions": {
-                    "description": "количество сессий",
-                    "type": "integer"
-                },
-                "timestamp": {
-                    "description": "\"8:00 AM\", \"9:00 AM\"",
+                "insight": {
                     "type": "string"
                 },
-                "total_mins": {
-                    "description": "общее время в этом часе",
-                    "type": "integer"
-                }
-            }
-        },
-        "entity.HourlyDeepWorkData": {
-            "type": "object",
-            "properties": {
-                "context_switches": {
-                    "type": "integer",
-                    "example": 3
-                },
-                "date": {
-                    "type": "string",
-                    "example": "2025-07-13"
-                },
-                "deep_work_mins": {
-                    "type": "integer",
-                    "example": 45
-                },
-                "deep_work_rate": {
-                    "type": "number",
-                    "example": 75
-                },
-                "hour": {
-                    "type": "integer",
-                    "example": 17
-                },
-                "sessions": {
-                    "type": "integer",
-                    "example": 5
-                },
-                "switches_per_hour": {
-                    "type": "number",
-                    "example": 4.5
+                "method": {
+                    "description": "\"ai\" или \"fallback\"",
+                    "type": "string"
                 },
                 "timestamp": {
-                    "type": "string",
-                    "example": "5:00 PM"
-                },
-                "total_mins": {
-                    "type": "integer",
-                    "example": 60
+                    "type": "string"
                 }
             }
         },
@@ -2375,46 +2038,6 @@
                 },
                 "userName": {
                     "type": "string"
-                }
-            }
-        },
-        "entity.TrackedTimeMetric": {
-            "type": "object",
-            "properties": {
-                "end_time": {
-                    "type": "string"
-                },
-                "period": {
-                    "type": "string"
-                },
-                "sessions": {
-                    "type": "integer"
-                },
-                "start_time": {
-                    "type": "string"
-                },
-                "total_hours": {
-                    "type": "number"
-                },
-                "total_minutes": {
-                    "type": "number"
-                },
-                "user_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "entity.TrackedTimeResponse": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "$ref": "#/definitions/entity.TrackedTimeMetric"
-                },
-                "message": {
-                    "type": "string"
-                },
-                "success": {
-                    "type": "boolean"
                 }
             }
         },
