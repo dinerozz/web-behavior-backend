@@ -139,12 +139,14 @@ type DeepWorkSessionsResponse struct {
 	EndTime   time.Time `json:"end_time" example:"2025-07-11T19:59:59Z"`
 	Period    string    `json:"period" example:"2025-07-10 08:00 - 2025-07-11 19:59"`
 
-	SessionsCount  int     `json:"sessions_count" example:"3"`
-	TotalMinutes   float64 `json:"total_minutes" example:"127.5"`
-	TotalHours     float64 `json:"total_hours" example:"2.13"`
-	AverageMinutes float64 `json:"average_minutes" example:"42.5"`
-	LongestMinutes float64 `json:"longest_minutes" example:"65.2"`
-	DeepWorkRate   float64 `json:"deep_work_rate" example:"59.64"`
+	SessionsCount   int     `json:"sessions_count" example:"3"`
+	TotalMinutes    float64 `json:"total_minutes" example:"127.5"`
+	TotalHours      float64 `json:"total_hours" example:"2.13"`
+	AverageMinutes  float64 `json:"average_minutes" example:"42.5"`
+	LongestMinutes  float64 `json:"longest_minutes" example:"65.2"`
+	ShortestMinutes float64 `json:"shortest_minutes" example:"25.5"`
+	UniqueDomains   int     `json:"unique_domains" example:"8"`
+	DeepWorkRate    float64 `json:"deep_work_rate" example:"59.64"`
 
 	ContextSwitches ContextSwitchesStats `json:"context_switches"`
 

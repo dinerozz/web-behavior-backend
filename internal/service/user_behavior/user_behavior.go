@@ -4,6 +4,7 @@ package service
 import (
 	"context"
 	"fmt"
+
 	"github.com/dinerozz/web-behavior-backend/internal/entity"
 	"github.com/dinerozz/web-behavior-backend/internal/repository"
 	"github.com/google/uuid"
@@ -39,6 +40,7 @@ var validEventTypes = map[string]bool{
 	"click":              true,
 	"focus":              true,
 	"blur":               true,
+	"keyup":              true,
 	"keydown":            true,
 	"visibility_hidden":  true,
 	"visibility_visible": true,

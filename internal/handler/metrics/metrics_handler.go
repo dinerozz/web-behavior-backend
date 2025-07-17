@@ -3,12 +3,13 @@ package metrics
 import (
 	"context"
 	"fmt"
-	"github.com/dinerozz/web-behavior-backend/internal/entity"
-	"github.com/dinerozz/web-behavior-backend/internal/model/response/wrapper"
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/dinerozz/web-behavior-backend/internal/entity"
+	"github.com/dinerozz/web-behavior-backend/internal/model/response/wrapper"
+	"github.com/gin-gonic/gin"
 )
 
 type MetricsHandler struct {
@@ -299,7 +300,7 @@ func (h *MetricsHandler) GetTopDomains(c *gin.Context) {
 
 // GetDeepWorkSessions godoc
 // @Summary Get Deep Work Sessions Analysis
-// @Description Analyze user's deep work sessions (25+ minute focused work blocks) and context switches. Deep Work Sessions are continuous activity blocks lasting 25+ minutes with gaps no longer than 5 minutes between active events (click, keydown, scrollend). Context Switches are measured as domain changes within each deep work block.
+// @Description Analyze user's deep work sessions (25+ minute focused work blocks) and context switches. Deep Work Sessions are continuous activity blocks lasting 25+ minutes with gaps no longer than 5 minutes between active events (click, keyup, keydown, scrollend). Context Switches are measured as domain changes within each deep work block.
 // @Tags /api/v1/admin/metrics
 // @Accept json
 // @Produce json

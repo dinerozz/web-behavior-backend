@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/dinerozz/web-behavior-backend/internal/entity"
 	"github.com/dinerozz/web-behavior-backend/internal/repository"
 	"github.com/dinerozz/web-behavior-backend/internal/service/ai_analytics"
-	"time"
 )
 
 type MetricsService struct {
@@ -79,7 +80,8 @@ func (s *MetricsService) GetEngagedTime(ctx context.Context, filter entity.Engag
 		return nil, fmt.Errorf("failed to calculate engaged time: %w", err)
 	}
 
-	if s.aiService != nil {
+	// Обращаемся к AI только если есть реальные данные активности
+	if s.aiService != nil && metric.ActiveMinutes > 0 && metric.ActiveHours > 0 && len(metric.DomainsList) > 0 {
 		analysis, err := s.aiService.AnalyzeDomainUsage(
 			ctx,
 			metric.UniqueDomainsCount,
@@ -96,6 +98,13 @@ func (s *MetricsService) GetEngagedTime(ctx context.Context, filter entity.Engag
 			metric.WorkPattern = analysis.WorkPattern
 			metric.Recommendations = analysis.Recommendations
 			metric.Analysis = analysis.Analysis
+		}
+	} else {
+		// Если нет данных активности, используем fallback без AI
+		if s.aiService != nil {
+			metric.FocusLevel = s.aiService.DetermineFocusLevelFallback(metric.UniqueDomainsCount)
+		} else {
+			metric.FocusLevel = "unknown"
 		}
 	}
 
