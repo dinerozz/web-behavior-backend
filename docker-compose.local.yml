@@ -16,6 +16,18 @@ services:
     networks:
       - web-behavior-network
 
+  redis:
+    image: redis:7-alpine
+    container_name: web_behavior_redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    networks:
+      - web-behavior-network
+
 #  backend:
 #     build: .
 #     container_name: web_behavior_backend
@@ -41,6 +53,7 @@ services:
 
 volumes:
   pgdata:
+  redisdata:
 
 networks:
   web-behavior-network:

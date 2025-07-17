@@ -11,3 +11,5 @@ data:
   DB_SSLMODE: "disable"
   PORT: "5555"
   ENV: "prod"
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
