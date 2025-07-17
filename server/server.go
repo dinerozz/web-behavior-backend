@@ -202,6 +202,7 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 
 		privateRoutes.GET("/users/profile", routerHandler.userHandler.GetUserById)
 		privateRoutes.POST("/users/logout", routerHandler.userHandler.Logout)
+
 		privateRoutes.GET("/behaviors", routerHandler.userBehaviorHandler.GetBehaviors)
 		privateRoutes.GET("/behaviors/periods", routerHandler.userBehaviorHandler.GetBehaviorsPeriods)
 		privateRoutes.GET("/behaviors/stats", routerHandler.userBehaviorHandler.GetStats)
@@ -209,6 +210,8 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 		privateRoutes.GET("/behaviors/:id", routerHandler.userBehaviorHandler.GetBehaviorByID)
 		privateRoutes.GET("/behaviors/users/:userId/sessions", routerHandler.userBehaviorHandler.GetUserSessions)
 		privateRoutes.GET("/behaviors/user-events", routerHandler.userBehaviorHandler.GetUserEventsCount)
+
+		privateRoutes.DELETE("/behaviors/:id", routerHandler.userBehaviorHandler.DeleteBehavior)
 
 		privateRoutes.POST("/ai-analytics/domain-usage", routerHandler.aiAnalyticsHandler.AnalyzeDomainUsage)
 		privateRoutes.GET("/ai-analytics/focus-level", routerHandler.aiAnalyticsHandler.AnalyzeDomainUsage)
@@ -218,8 +221,6 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 		privateRoutes.GET("/metrics/engaged-time", routerHandler.userMetricsHandler.GetEngagedTime)
 		privateRoutes.GET("/metrics/top-domains", routerHandler.userMetricsHandler.GetTopDomains)
 		privateRoutes.GET("/metrics/deep-work-sessions", routerHandler.userMetricsHandler.GetDeepWorkSessions)
-
-		privateRoutes.DELETE("/behaviors/:id", routerHandler.userBehaviorHandler.DeleteBehavior)
 
 		extensionRoutes := privateRoutes.Group("/extension")
 		extensionRoutes.POST("/users/generate", routerHandler.userExtensionHandler.CreateExtensionUser)
