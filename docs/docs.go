@@ -1553,9 +1553,6 @@ const docTemplate = `{
                 "period": {
                     "type": "string"
                 },
-                "timestamp": {
-                    "type": "string"
-                },
                 "tracked_hours": {
                     "type": "number",
                     "minimum": 0
@@ -1597,8 +1594,7 @@ const docTemplate = `{
             "required": [
                 "sessionId",
                 "ts",
-                "type",
-                "url"
+                "type"
             ],
             "properties": {
                 "key": {

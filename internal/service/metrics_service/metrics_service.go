@@ -80,34 +80,6 @@ func (s *MetricsService) GetEngagedTime(ctx context.Context, filter entity.Engag
 		return nil, fmt.Errorf("failed to calculate engaged time: %w", err)
 	}
 
-	// Обращаемся к AI только если есть реальные данные активности
-	if s.aiService != nil && metric.ActiveMinutes > 0 && metric.ActiveHours > 0 && len(metric.DomainsList) > 0 {
-		analysis, err := s.aiService.AnalyzeDomainUsage(
-			ctx,
-			metric.UniqueDomainsCount,
-			metric.DomainsList,
-			metric.DeepWork,
-			metric.EngagementRate,
-			metric.TrackedHours,
-		)
-		if err != nil {
-			metric.FocusLevel = s.aiService.DetermineFocusLevelFallback(metric.UniqueDomainsCount)
-		} else {
-			metric.FocusLevel = analysis.FocusLevel
-			metric.FocusInsight = analysis.FocusInsight
-			metric.WorkPattern = analysis.WorkPattern
-			metric.Recommendations = analysis.Recommendations
-			metric.Analysis = analysis.Analysis
-		}
-	} else {
-		// Если нет данных активности, используем fallback без AI
-		if s.aiService != nil {
-			metric.FocusLevel = s.aiService.DetermineFocusLevelFallback(metric.UniqueDomainsCount)
-		} else {
-			metric.FocusLevel = "unknown"
-		}
-	}
-
 	return metric, nil
 }
 

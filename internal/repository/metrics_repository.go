@@ -389,9 +389,6 @@ func calculateEngagementRate(activeMinutes int, totalTrackedMinutes int) float64
 func (r *metricsRepository) buildEngagedTimeMetric(filter entity.EngagedTimeFilter, result engagedTimeResult) *entity.EngagedTimeMetric {
 	engagementRate := calculateEngagementRate(result.ActiveMinutes, result.TotalTrackedMinutes)
 
-	//focusLevel := r.determineFocusLevel(result.UniqueDomainsCount)
-	//focusInsight := r.generateFocusInsight(result.UniqueDomainsCount, result.DomainsList)
-
 	var topDomains []entity.DeepWorkDomain
 	if len(result.TopDeepDomains) > 0 && string(result.TopDeepDomains) != "[]" {
 		if err := json.Unmarshal(result.TopDeepDomains, &topDomains); err != nil {
@@ -405,8 +402,8 @@ func (r *metricsRepository) buildEngagedTimeMetric(filter entity.EngagedTimeFilt
 			Hour           int    `json:"hour"`
 			Date           string `json:"date"`
 			EngagedMinutes int    `json:"engaged_minutes"`
-			TotalMinutes   int    `json:"total_minutes"` // изменено с float64 на int
-			IdleMinutes    int    `json:"idle_minutes"`  // добавлено новое поле
+			TotalMinutes   int    `json:"total_minutes"`
+			IdleMinutes    int    `json:"idle_minutes"`
 			ActiveEvents   int    `json:"active_events"`
 			SessionsCount  int    `json:"sessions_count"`
 		}
@@ -418,9 +415,7 @@ func (r *metricsRepository) buildEngagedTimeMetric(filter entity.EngagedTimeFilt
 				totalMins := raw.TotalMinutes
 				idleMins := raw.IdleMinutes
 
-				// Проверяем консистентность данных
 				if totalMins != (raw.EngagedMinutes + idleMins) {
-					// Если есть несоответствие, пересчитываем
 					idleMins = totalMins - raw.EngagedMinutes
 					if idleMins < 0 {
 						idleMins = 0
@@ -448,7 +443,6 @@ func (r *metricsRepository) buildEngagedTimeMetric(filter entity.EngagedTimeFilt
 		}
 	}
 
-	// Рассчитываем deep work rate от отслеживаемого времени (не от общего периода)
 	var deepWorkRate float64
 	if result.TotalTrackedMinutes > 0 {
 		deepWorkRate = utils.RoundToTwoDecimals((result.TotalDeepMinutes / float64(result.TotalTrackedMinutes)) * 100)
@@ -468,10 +462,6 @@ func (r *metricsRepository) buildEngagedTimeMetric(filter entity.EngagedTimeFilt
 		Period:             utils.FormatPeriod(filter.StartTime, filter.EndTime),
 		UniqueDomainsCount: result.UniqueDomainsCount,
 		DomainsList:        result.DomainsList,
-		FocusLevel:         "",
-		FocusInsight:       "",
-		WorkPattern:        "",
-		Recommendations:    []string{},
 		DeepWork: entity.DeepWorkData{
 			SessionsCount:  result.DeepSessionsCount,
 			TotalMinutes:   utils.RoundToTwoDecimals(result.TotalDeepMinutes),

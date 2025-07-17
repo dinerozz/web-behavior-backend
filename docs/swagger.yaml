@@ -17,8 +17,6 @@ definitions:
         type: number
       period:
         type: string
-      timestamp:
-        type: string
       tracked_hours:
         minimum: 0
         type: number
@@ -73,7 +71,6 @@ definitions:
     - sessionId
     - ts
     - type
-    - url
     type: object
   entity.DeepWorkData:
     properties:
