@@ -325,7 +325,6 @@ func (qb *queryBuilder) buildQueryWithDeepWorkAndHourly() string {
 func (qb *queryBuilder) buildQueryWithDeepWork() string {
 	eventPlaceholders := qb.addActiveEventsPlaceholders()
 	activeDataEventPlaceholders1 := qb.addActiveEventsPlaceholders()
-	//activeDataEventPlaceholders2 := qb.addActiveEventsPlaceholders()
 
 	return fmt.Sprintf(`
     %s,
@@ -344,11 +343,12 @@ func (qb *queryBuilder) buildQueryWithDeepWork() string {
         COALESCE(dd.unique_domains_count, 0) as unique_domains_count,
         COALESCE(dd.domains_list, ARRAY[]::text[]) as domains_list,
         
-        -- Deep Work данные
+        -- Deep Work данные (исправленные)
         COALESCE(dws.deep_sessions_count, 0) as deep_sessions_count,
         COALESCE(dws.total_deep_minutes, 0) as total_deep_minutes,
         COALESCE(dws.avg_deep_minutes, 0) as avg_deep_minutes,
         COALESCE(dws.max_deep_minutes, 0) as max_deep_minutes,
+        COALESCE(dws.min_deep_minutes, 0) as min_deep_minutes,
         
         -- Top domains для deep work (JSON)
         COALESCE(
@@ -371,12 +371,13 @@ func (qb *queryBuilder) buildQueryWithDeepWork() string {
              ad.active_minutes, ad.total_tracked_minutes, ad.idle_minutes, 
              ad.active_events_count, ad.sessions_count,
              dd.unique_domains_count, dd.domains_list,
-             dws.deep_sessions_count, dws.total_deep_minutes, dws.avg_deep_minutes, dws.max_deep_minutes`,
+             dws.deep_sessions_count, dws.total_deep_minutes, dws.avg_deep_minutes, 
+             dws.max_deep_minutes, dws.min_deep_minutes`,
 
 		fmt.Sprintf(timeBoundsQuery, qb.sessionFilter),
 		fmt.Sprintf(activeDataQuery, eventPlaceholders, qb.sessionFilter, activeDataEventPlaceholders1, qb.sessionFilter, qb.sessionFilter),
 		fmt.Sprintf(domainsDataQuery, qb.sessionFilter),
-		fmt.Sprintf(deepWorkQuery, eventPlaceholders, qb.sessionFilter))
+		fmt.Sprintf(deepWorkQuery, eventPlaceholders, qb.sessionFilter)) // Используем исправленный запрос
 }
 
 func calculateEngagementRate(activeMinutes int, totalTrackedMinutes int) float64 {
@@ -559,6 +560,7 @@ const (
     domain_events AS (
         SELECT 
             ub.timestamp,
+            ub.session_id,
             CASE 
                 WHEN ub.url ~ '^https?://' THEN 
                     split_part(split_part(ub.url, '://', 2), '/', 1)
@@ -566,12 +568,7 @@ const (
                     split_part(ub.url, '/', 1)
             END as domain,
             LAG(ub.timestamp) OVER (
-                PARTITION BY CASE 
-                    WHEN ub.url ~ '^https?://' THEN 
-                        split_part(split_part(ub.url, '://', 2), '/', 1)
-                    ELSE 
-                        split_part(ub.url, '/', 1)
-                END 
+                PARTITION BY ub.user_id 
                 ORDER BY ub.timestamp
             ) as prev_timestamp
         FROM user_behaviors ub
@@ -581,66 +578,72 @@ const (
             AND ub.timestamp <= tb.actual_end
             AND ub.event_type IN (%s) %s
     ),
-    session_breaks AS (
-        SELECT 
-            timestamp,
-            domain,
+    gaps_marked AS (
+        SELECT *,
             CASE 
                 WHEN prev_timestamp IS NULL 
-                    OR EXTRACT(EPOCH FROM (timestamp - prev_timestamp)) > 120 
-                THEN 1 
-                ELSE 0 
-            END as is_new_session
+                    OR EXTRACT(EPOCH FROM (timestamp - prev_timestamp)) > 300
+                THEN 1 ELSE 0 
+            END AS is_new_block
         FROM domain_events
     ),
-    session_groups AS (
-        SELECT 
-            domain,
-            timestamp,
-            SUM(is_new_session) OVER (
-                PARTITION BY domain 
-                ORDER BY timestamp 
-                ROWS UNBOUNDED PRECEDING
-            ) as session_group
-        FROM session_breaks
+    numbered_blocks AS (
+        SELECT *,
+            SUM(is_new_block) OVER (ORDER BY timestamp) AS block_id
+        FROM gaps_marked
     ),
-    domain_sessions AS (
-        SELECT 
-            domain,
-            session_group,
-            MIN(timestamp) as session_start,
-            MAX(timestamp) as session_end,
-            EXTRACT(EPOCH FROM (MAX(timestamp) - MIN(timestamp))) / 60.0 as duration_minutes,
-            COUNT(*) as events_count
-        FROM session_groups
-        GROUP BY domain, session_group
-        HAVING COUNT(*) > 1
+    block_boundaries AS (
+        SELECT
+            block_id,
+            MIN(timestamp) AS start_time,
+            MAX(timestamp) AS last_active_time,
+            COUNT(*) AS total_events,
+            COUNT(DISTINCT domain) AS unique_domains_in_block
+        FROM numbered_blocks
+        GROUP BY block_id
+    ),
+    final_blocks AS (
+        SELECT *,
+            last_active_time + INTERVAL '5 minutes' AS end_time,
+            EXTRACT(EPOCH FROM (last_active_time + INTERVAL '5 minutes') - start_time) / 60.0 AS duration_minutes
+        FROM block_boundaries
     ),
     deep_work_sessions AS (
         SELECT 
-            domain,
-            session_start,
-            session_end,
+            block_id,
+            start_time,
+            end_time,
             duration_minutes,
-            events_count
-        FROM domain_sessions
-        WHERE duration_minutes >= 15
+            total_events,
+            unique_domains_in_block
+        FROM final_blocks
+        WHERE duration_minutes >= 15  -- Минимум 15 минут для deep work
+    ),
+    domain_deep_work AS (
+        SELECT 
+            nb.domain,
+            SUM(fb.duration_minutes) as domain_minutes,
+            COUNT(DISTINCT fb.block_id) as domain_sessions
+        FROM numbered_blocks nb
+        JOIN final_blocks fb ON nb.block_id = fb.block_id
+        WHERE fb.duration_minutes >= 15
+        GROUP BY nb.domain
     ),
     deep_work_stats AS (
         SELECT 
             COUNT(*) as deep_sessions_count,
             COALESCE(SUM(duration_minutes), 0) as total_deep_minutes,
             COALESCE(AVG(duration_minutes), 0) as avg_deep_minutes,
-            COALESCE(MAX(duration_minutes), 0) as max_deep_minutes
+            COALESCE(MAX(duration_minutes), 0) as max_deep_minutes,
+            COALESCE(MIN(duration_minutes), 0) as min_deep_minutes
         FROM deep_work_sessions
     ),
     deep_work_domains AS (
         SELECT 
             domain,
-            SUM(duration_minutes) as domain_minutes,
-            COUNT(*) as domain_sessions
-        FROM deep_work_sessions
-        GROUP BY domain
+            domain_minutes,
+            domain_sessions
+        FROM domain_deep_work
         ORDER BY domain_minutes DESC
         LIMIT 3
     )`
@@ -880,7 +883,8 @@ block_boundaries AS (
 		block_id,
 		MIN(timestamp) AS start_time,
 		MAX(timestamp) AS last_active_time,
-		COUNT(*) AS total_events
+		COUNT(*) AS total_events,
+		COUNT(DISTINCT domain) AS unique_domains_in_block
 	FROM numbered_blocks
 	GROUP BY user_id, block_id
 ),
@@ -893,7 +897,7 @@ final_blocks AS (
 deep_work_blocks AS (
 	SELECT *
 	FROM final_blocks
-	WHERE duration_minutes >= 25
+	WHERE duration_minutes >= 25  -- Минимум 25 минут для deep work
 ),
 context_switches_per_block AS (
 	SELECT 
@@ -914,9 +918,10 @@ deep_work_with_switches AS (
 		dwb.*,
 		COALESCE(cs.context_switches, 0) AS context_switches,
 		ROUND(COALESCE(cs.context_switches * 60.0 / dwb.duration_minutes, 0)::numeric, 2) AS switches_per_hour,
+		-- Исправленная логика для определения уровня фокуса
 		CASE 
-			WHEN COALESCE(cs.context_switches * 60.0 / dwb.duration_minutes, 0) <= 5 THEN 'high'
-			WHEN COALESCE(cs.context_switches * 60.0 / dwb.duration_minutes, 0) <= 15 THEN 'medium'
+			WHEN dwb.unique_domains_in_block <= 3 AND COALESCE(cs.context_switches * 60.0 / dwb.duration_minutes, 0) <= 5 THEN 'high'
+			WHEN dwb.unique_domains_in_block <= 7 AND COALESCE(cs.context_switches * 60.0 / dwb.duration_minutes, 0) <= 15 THEN 'medium'
 			ELSE 'low'
 		END AS focus_level
 	FROM deep_work_blocks dwb
@@ -1000,18 +1005,14 @@ aggregated_stats AS (
 		COALESCE(AVG(duration_minutes), 0::numeric) as average_minutes,
 		COALESCE(MAX(duration_minutes), 0::numeric) as longest_minutes,
 		COALESCE(MIN(duration_minutes), 0::numeric) as shortest_minutes,
+		-- Правильный подсчет уникальных доменов (всех в deep work блоках)
 		(SELECT COUNT(DISTINCT domain) FROM numbered_blocks nb 
 		 WHERE nb.block_id IN (SELECT block_id FROM deep_work_blocks))::integer as unique_domains,
 		COALESCE(SUM(context_switches), 0)::integer as total_context_switches,
 		COALESCE(AVG(switches_per_hour), 0::numeric) as avg_switches_per_hour,
 		COUNT(CASE WHEN focus_level = 'high' THEN 1 END)::integer as high_focus_blocks,
 		COUNT(CASE WHEN focus_level = 'medium' THEN 1 END)::integer as medium_focus_blocks,
-		COUNT(CASE WHEN focus_level = 'low' THEN 1 END)::integer as low_focus_blocks,
-		CASE 
-			WHEN COALESCE(SUM(context_switches), 0) > 0 
-			THEN COUNT(*)::numeric / COALESCE(SUM(context_switches), 0)::numeric
-			ELSE COUNT(*)::numeric
-		END as deep_work_context_ratio
+		COUNT(CASE WHEN focus_level = 'low' THEN 1 END)::integer as low_focus_blocks
 	FROM deep_work_with_switches
 ),
 sessions_detailed AS (
@@ -1024,6 +1025,7 @@ sessions_detailed AS (
 					'end_time', end_time,
 					'duration_minutes', duration_minutes,
 					'total_events', total_events,
+					'unique_domains', unique_domains_in_block,
 					'context_switches', context_switches,
 					'switches_per_hour', switches_per_hour,
 					'focus_level', focus_level
@@ -1070,7 +1072,6 @@ SELECT
 	COALESCE(ag.high_focus_blocks, 0) as high_focus_blocks,
 	COALESCE(ag.medium_focus_blocks, 0) as medium_focus_blocks,
 	COALESCE(ag.low_focus_blocks, 0) as low_focus_blocks,
-	COALESCE(ag.deep_work_context_ratio, 0::numeric) as deep_work_context_ratio,
 	sd.sessions_data,
 	COALESCE(tt.total_tracked_minutes, 0) as total_tracked_minutes,
 	hbd.hourly_data as hourly_breakdown_data
@@ -1192,8 +1193,7 @@ func (r *metricsRepository) buildDeepWorkSessionsResponse(filter entity.DeepWork
 			LowFocusBlocks:     result.LowFocusBlocks,
 		},
 
-		DeepWorkContextRatio: utils.RoundToTwoDecimals(result.DeepWorkContextRatio),
-		Sessions:             sessions,
-		HourlyBreakdown:      hourlyBreakdown,
+		Sessions:        sessions,
+		HourlyBreakdown: hourlyBreakdown,
 	}
 }
