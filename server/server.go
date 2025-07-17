@@ -210,7 +210,7 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 		privateRoutes.GET("/behaviors/users/:userId/sessions", routerHandler.userBehaviorHandler.GetUserSessions)
 		privateRoutes.GET("/behaviors/user-events", routerHandler.userBehaviorHandler.GetUserEventsCount)
 
-		privateRoutes.GET("/ai-analytics/domain-usage", routerHandler.aiAnalyticsHandler.AnalyzeDomainUsage)
+		privateRoutes.POST("/ai-analytics/domain-usage", routerHandler.aiAnalyticsHandler.AnalyzeDomainUsage)
 		privateRoutes.GET("/ai-analytics/focus-level", routerHandler.aiAnalyticsHandler.AnalyzeDomainUsage)
 
 		privateRoutes.GET("/metrics/tracked-time", routerHandler.userMetricsHandler.GetTrackedTime)
