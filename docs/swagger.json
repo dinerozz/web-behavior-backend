@@ -1542,9 +1542,6 @@
                 "period": {
                     "type": "string"
                 },
-                "timestamp": {
-                    "type": "string"
-                },
                 "tracked_hours": {
                     "type": "number",
                     "minimum": 0
@@ -1586,8 +1583,7 @@
             "required": [
                 "sessionId",
                 "ts",
-                "type",
-                "url"
+                "type"
             ],
             "properties": {
                 "key": {

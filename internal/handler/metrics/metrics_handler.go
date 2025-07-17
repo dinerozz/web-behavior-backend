@@ -29,7 +29,6 @@ func NewMetricsHandler(service MetricsService) *MetricsHandler {
 	return &MetricsHandler{service: service}
 }
 
-// GetTrackedTime остается без изменений
 func (h *MetricsHandler) GetTrackedTime(c *gin.Context) {
 	var filter entity.TrackedTimeFilter
 
@@ -100,7 +99,6 @@ func (h *MetricsHandler) GetTrackedTime(c *gin.Context) {
 	})
 }
 
-// GetTrackedTimeTotal остается без изменений
 func (h *MetricsHandler) GetTrackedTimeTotal(c *gin.Context) {
 	var filter entity.TrackedTimeFilter
 
@@ -202,7 +200,6 @@ func (h *MetricsHandler) GetEngagedTime(c *gin.Context) {
 	})
 }
 
-//// PrepareAIAnalyticsData новый эндпоинт для подготовки данных для AI анализа
 //// @Summary      Prepare data for AI analytics
 //// @Description  Get prepared data for AI analytics based on engaged time metrics
 //// @Tags         /api/v1/admin/metrics

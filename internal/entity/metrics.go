@@ -41,16 +41,9 @@ type EngagedTimeMetric struct {
 
 	DeepWork DeepWorkData `json:"deep_work"`
 
-	UniqueDomainsCount int      `json:"unique_domains_count" db:"unique_domains_count"`
-	DomainsList        []string `json:"domains_list" db:"domains_list"`
-	FocusLevel         string   `json:"focus_level" db:"focus_level"` // "high", "medium", "low"
-	FocusInsight       string   `json:"focus_insight" db:"focus_insight"`
-
-	HourlyBreakdown []HourlyData `json:"hourly_breakdown"`
-
-	WorkPattern     string           `json:"work_pattern"`
-	Recommendations []string         `json:"recommendations"`
-	Analysis        DetailedAnalysis `json:"analysis"`
+	UniqueDomainsCount int          `json:"unique_domains_count" db:"unique_domains_count"`
+	DomainsList        []string     `json:"domains_list" db:"domains_list"`
+	HourlyBreakdown    []HourlyData `json:"hourly_breakdown"`
 }
 
 type HourlyData struct {
@@ -157,18 +150,18 @@ type DeepWorkSessionsResponse struct {
 	HourlyBreakdown []HourlyDeepWorkData `json:"hourly_breakdown"`
 }
 
-func (e *EngagedTimeMetric) GetFocusLevelDescription() string {
-	switch e.FocusLevel {
-	case "high":
-		return "Высокая концентрация"
-	case "medium":
-		return "Сбалансированная многозадачность"
-	case "low":
-		return "Высокая многозадачность"
-	default:
-		return "Неопределено"
-	}
-}
+//func (e *EngagedTimeMetric) GetFocusLevelDescription() string {
+//	switch e.FocusLevel {
+//	case "high":
+//		return "Высокая концентрация"
+//	case "medium":
+//		return "Сбалансированная многозадачность"
+//	case "low":
+//		return "Высокая многозадачность"
+//	default:
+//		return "Неопределено"
+//	}
+//}
 
 func (e *EngagedTimeMetric) GetTopDomains(limit int) []string {
 	if limit <= 0 || limit >= len(e.DomainsList) {
@@ -177,10 +170,10 @@ func (e *EngagedTimeMetric) GetTopDomains(limit int) []string {
 	return e.DomainsList[:limit]
 }
 
-func (e *EngagedTimeMetric) IsHighFocus() bool {
-	return e.FocusLevel == "high"
-}
+//func (e *EngagedTimeMetric) IsHighFocus() bool {
+//	return e.FocusLevel == "high"
+//}
 
-func (e *EngagedTimeMetric) IsLowFocus() bool {
-	return e.FocusLevel == "low"
-}
+//func (e *EngagedTimeMetric) IsLowFocus() bool {
+//	return e.FocusLevel == "low"
+//}
