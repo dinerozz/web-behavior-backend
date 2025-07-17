@@ -34,7 +34,6 @@ func NewUserBehaviorService(repo repository.UserBehaviorRepository) UserBehavior
 	}
 }
 
-// event types
 var validEventTypes = map[string]bool{
 	"pageshow":           true,
 	"click":              true,
@@ -89,14 +88,13 @@ func (s *userBehaviorService) BatchCreateBehaviors(ctx context.Context, req enti
 	var behaviors []entity.UserBehavior
 
 	for i, event := range req.Events {
-		// Валидация каждого события
 		if !s.ValidateEventType(event.Type) {
 			return fmt.Errorf("invalid event type at index %d: %s", i, event.Type)
 		}
 
-		if err := s.ValidateCoordinates(event.X, event.Y, event.Type); err != nil {
-			return fmt.Errorf("validation error at index %d: %w", i, err)
-		}
+		//if err := s.ValidateCoordinates(event.X, event.Y, event.Type); err != nil {
+		//	return fmt.Errorf("validation error at index %d: %w", i, err)
+		//}
 
 		behavior := entity.UserBehavior{
 			SessionID: event.SessionID,
@@ -113,7 +111,6 @@ func (s *userBehaviorService) BatchCreateBehaviors(ctx context.Context, req enti
 		behaviors = append(behaviors, behavior)
 	}
 
-	// Массовое сохранение
 	if err := s.repo.BatchCreate(ctx, behaviors); err != nil {
 		return fmt.Errorf("failed to batch create behaviors: %w", err)
 	}

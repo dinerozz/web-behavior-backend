@@ -24,7 +24,7 @@ type CreateUserBehaviorRequest struct {
 	SessionID string    `json:"sessionId" binding:"required"`
 	Timestamp time.Time `json:"ts" binding:"required"`
 	Type      string    `json:"type" binding:"required"`
-	URL       string    `json:"url" binding:"required"`
+	URL       string    `json:"url"`
 	UserID    *string   `json:"userId"`
 	UserName  *string   `json:"userName"`
 	X         *int      `json:"x,omitempty"`
@@ -36,7 +36,6 @@ type BatchCreateUserBehaviorRequest struct {
 	Events []CreateUserBehaviorRequest `json:"events" binding:"required,dive"`
 }
 
-// UserBehaviorFilter фильтры для поиска событий
 type UserBehaviorFilter struct {
 	UserID    *string    `json:"user_id"`
 	SessionID *string    `json:"session_id"`
