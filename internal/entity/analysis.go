@@ -41,7 +41,6 @@ type AIAnalyticsRequest struct {
 	TrackedHours   float64      `json:"tracked_hours" binding:"required,min=0"`
 	UserID         string       `json:"user_id,omitempty"`
 	Period         string       `json:"period,omitempty"`
-	Timestamp      time.Time    `json:"timestamp,omitempty"`
 }
 
 // FocusLevelResponse представляет ответ с уровнем фокуса
