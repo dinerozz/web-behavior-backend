@@ -331,6 +331,7 @@ func (h *MetricsHandler) GetTopDomains(c *gin.Context) {
 	})
 }
 
+// GetDeepWorkSessions остается без изменений
 func (h *MetricsHandler) GetDeepWorkSessions(c *gin.Context) {
 	userID := c.Query("user_id")
 	startTimeStr := c.Query("start_time")
