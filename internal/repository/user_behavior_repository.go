@@ -291,7 +291,7 @@ func (r *userBehaviorRepository) GetSessionSummary(ctx context.Context, sessionI
 		&summary.EndTime,
 		&summary.Duration,
 		&summary.EventsCount,
-		(*StringSlice)(&urls),
+		pq.Array(&summary.URLs),
 	)
 
 	if err != nil {
