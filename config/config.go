@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/dinerozz/web-behavior-backend/internal/service/redis"
 	"log"
 	"os"
 
@@ -25,6 +26,7 @@ type Config struct {
 	Server ServerConfig
 	DB     DatabaseConfig
 	Env    string
+	Redis  redis.RedisConfig
 }
 
 func LoadConfig() *Config {
@@ -44,6 +46,11 @@ func LoadConfig() *Config {
 			Password: getEnv("DB_PASS", "test"),
 			DBName:   getEnv("DB_NAME", "expense_tracker_test"),
 			SSLMode:  getEnv("DB_SSLMODE", "disable"),
+		},
+		Redis: redis.RedisConfig{
+			Host:     getEnv("REDIS_HOST", ""),
+			Port:     getEnv("REDIS_PORT", ""),
+			Password: getEnv("REDIS_PASSWORD", ""),
 		},
 		Env: getEnv("ENV", "prod"),
 	}

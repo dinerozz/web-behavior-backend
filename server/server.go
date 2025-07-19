@@ -15,6 +15,7 @@ import (
 	aiAnalyticsService "github.com/dinerozz/web-behavior-backend/internal/service/ai_analytics"
 	extensionUserService "github.com/dinerozz/web-behavior-backend/internal/service/extension_user"
 	metricsService "github.com/dinerozz/web-behavior-backend/internal/service/metrics_service"
+	"github.com/dinerozz/web-behavior-backend/internal/service/redis"
 	"github.com/dinerozz/web-behavior-backend/internal/service/user"
 	service "github.com/dinerozz/web-behavior-backend/internal/service/user_behavior"
 	"github.com/dinerozz/web-behavior-backend/middleware"
@@ -61,6 +62,18 @@ func RunServer(config *config.Config) {
 		log.Fatal("❌ Failed to connect to database:", err)
 	}
 	defer db.Close()
+
+	redisConfig := redis.RedisConfig{
+		Host:     config.Redis.Host,
+		Port:     config.Redis.Port,
+		Password: config.Redis.Password,
+	}
+
+	redisService := redis.NewRedisService(redisConfig)
+	if redisService == nil {
+		log.Fatal("Failed to create Redis service")
+	}
+	defer redisService.Close()
 
 	userRepo := repository.NewUserRepository(db)
 	userBehaviorRepo := repository.NewUserBehaviorRepository(db)
