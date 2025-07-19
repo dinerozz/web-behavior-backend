@@ -2,7 +2,9 @@ package metrics
 
 import (
 	"context"
+	"crypto/md5"
 	"fmt"
+	"github.com/dinerozz/web-behavior-backend/internal/service/redis"
 	"net/http"
 	"strconv"
 	"time"
@@ -13,7 +15,8 @@ import (
 )
 
 type MetricsHandler struct {
-	service MetricsService
+	service      MetricsService
+	redisService redis.ServiceInterface
 }
 
 type MetricsService interface {
@@ -25,8 +28,8 @@ type MetricsService interface {
 	//PrepareAIAnalyticsData(ctx context.Context, filter entity.EngagedTimeFilter) (*entity.AIAnalyticsRequest, error)
 }
 
-func NewMetricsHandler(service MetricsService) *MetricsHandler {
-	return &MetricsHandler{service: service}
+func NewMetricsHandler(service MetricsService, redisService redis.ServiceInterface) *MetricsHandler {
+	return &MetricsHandler{service: service, redisService: redisService}
 }
 
 func (h *MetricsHandler) GetTrackedTime(c *gin.Context) {
@@ -130,6 +133,18 @@ func (h *MetricsHandler) GetTrackedTimeTotal(c *gin.Context) {
 	})
 }
 
+func (h *MetricsHandler) generateEngagedTimeCacheKey(filter entity.EngagedTimeFilter) string {
+	params := fmt.Sprintf("user_id:%s|start_time:%s|end_time:%s|session_id:%v",
+		filter.UserID,
+		filter.StartTime.Format(time.RFC3339),
+		filter.EndTime.Format(time.RFC3339),
+		filter.SessionID,
+	)
+
+	hash := md5.Sum([]byte(params))
+	return fmt.Sprintf("metrics:engaged_time:%x", hash)
+}
+
 func (h *MetricsHandler) GetEngagedTime(c *gin.Context) {
 	var filter entity.EngagedTimeFilter
 
@@ -185,13 +200,41 @@ func (h *MetricsHandler) GetEngagedTime(c *gin.Context) {
 		filter.SessionID = &sessionID
 	}
 
-	metric, err := h.service.GetEngagedTime(c.Request.Context(), filter)
+	ctx := c.Request.Context()
+	cacheKey := h.generateEngagedTimeCacheKey(filter)
+
+	// Попытка получить данные из кэша
+	var cachedMetric entity.EngagedTimeMetric
+	err = h.redisService.Get(ctx, cacheKey, &cachedMetric)
+	if err == nil {
+		// Данные найдены в кэше
+		c.Header("X-Cache", "HIT")
+		c.Header("X-Cache-Key", cacheKey) // Для отладки
+		c.JSON(http.StatusOK, entity.EngagedTimeResponse{
+			Data:    &cachedMetric,
+			Success: true,
+		})
+		return
+	}
+
+	// Данные не найдены в кэше, выполняем запрос к базе данных
+	c.Header("X-Cache", "MISS")
+	c.Header("X-Cache-Key", cacheKey) // Для отладки
+
+	metric, err := h.service.GetEngagedTime(ctx, filter)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{
 			Message: err.Error(),
 			Success: false,
 		})
 		return
+	}
+
+	// Кэшируем результат на 1 час
+	cacheErr := h.redisService.Set(ctx, cacheKey, metric, time.Hour)
+	if cacheErr != nil {
+		// Логируем ошибку кэширования, но не прерываем выполнение
+		fmt.Printf("Failed to cache engaged time result: %v\n", cacheErr)
 	}
 
 	c.JSON(http.StatusOK, entity.EngagedTimeResponse{
