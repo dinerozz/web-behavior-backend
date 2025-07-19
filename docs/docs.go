@@ -75,7 +75,7 @@ const docTemplate = `{
         },
         "/ai-analytics/focus-level": {
             "get": {
-                "description": "Get basic focus level assessment based on domain count (fallback method)",
+                "description": "Get basic focus level assessment based on domain count (fallback method). Results are cached in Redis for 6 hours.",
                 "consumes": [
                     "application/json"
                 ],
@@ -85,12 +85,33 @@ const docTemplate = `{
                 "tags": [
                     "/api/v1/admin/ai-analytics"
                 ],
-                "summary": "Get focus level without AI",
+                "summary": "Get focus level without AI (with Redis caching)",
                 "parameters": [
                     {
                         "type": "integer",
                         "description": "Number of unique domains",
                         "name": "domains_count",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "User id",
+                        "name": "user_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "start time",
+                        "name": "start_time",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "end time",
+                        "name": "end_time",
                         "in": "query",
                         "required": true
                     }

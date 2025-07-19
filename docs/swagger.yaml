@@ -479,13 +479,28 @@ paths:
       consumes:
       - application/json
       description: Get basic focus level assessment based on domain count (fallback
-        method)
+        method). Results are cached in Redis for 6 hours.
       parameters:
       - description: Number of unique domains
         in: query
         name: domains_count
         required: true
         type: integer
+      - description: User id
+        in: query
+        name: user_id
+        required: true
+        type: string
+      - description: start time
+        in: query
+        name: start_time
+        required: true
+        type: string
+      - description: end time
+        in: query
+        name: end_time
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -502,7 +517,7 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/wrapper.ErrorWrapper'
-      summary: Get focus level without AI
+      summary: Get focus level without AI (with Redis caching)
       tags:
       - /api/v1/admin/ai-analytics
   /behaviors:

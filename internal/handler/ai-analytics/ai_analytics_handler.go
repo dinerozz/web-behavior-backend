@@ -135,13 +135,20 @@ func (h *AIAnalyticsHandler) validateRequest(req entity.AIAnalyticsRequest) erro
 	return nil
 }
 
+func (h *AIAnalyticsHandler) generateFocusLevelCacheKey(domainsCount int) string {
+	return fmt.Sprintf("ai_analytics:focus_level:%d", domainsCount)
+}
+
 // GetFocusLevel godoc
-// @Summary      Get focus level without AI
-// @Description  Get basic focus level assessment based on domain count (fallback method)
+// @Summary      Get focus level without AI (with Redis caching)
+// @Description  Get basic focus level assessment based on domain count (fallback method). Results are cached in Redis for 6 hours.
 // @Tags         /api/v1/admin/ai-analytics
 // @Accept       json
 // @Produce      json
 // @Param        domains_count  query     int  true  "Number of unique domains"
+// @Param        user_id query     string  true  "User id"
+// @Param        start_time  query     string  true "start time"
+// @Param        end_time  query     string  true "end time"
 // @Success      200            {object}  wrapper.ResponseWrapper{data=entity.FocusLevelResponse}
 // @Failure      400            {object}  wrapper.ErrorWrapper
 // @Router       /ai-analytics/focus-level [get]
@@ -172,6 +179,23 @@ func (h *AIAnalyticsHandler) GetFocusLevel(c *gin.Context) {
 		return
 	}
 
+	ctx := c.Request.Context()
+	cacheKey := h.generateFocusLevelCacheKey(domainsCount)
+
+	var cachedResponse entity.FocusLevelResponse
+	err := h.redisService.Get(ctx, cacheKey, &cachedResponse)
+	if err == nil {
+		c.Header("X-Cache", "HIT")
+		c.Header("X-Cache-Key", cacheKey)
+		c.JSON(http.StatusOK, wrapper.ResponseWrapper{
+			Data:    &cachedResponse,
+			Success: true,
+		})
+		return
+	}
+
+	c.Header("X-Cache", "MISS")
+	c.Header("X-Cache-Key", cacheKey)
 	focusLevel := h.aiService.DetermineFocusLevelFallback(domainsCount)
 	insight := h.generateFallbackInsight(domainsCount)
 
@@ -182,8 +206,13 @@ func (h *AIAnalyticsHandler) GetFocusLevel(c *gin.Context) {
 		Timestamp:  time.Now(),
 	}
 
+	cacheErr := h.redisService.Set(ctx, cacheKey, &response, 6*time.Hour)
+	if cacheErr != nil {
+		fmt.Printf("Failed to cache focus level result: %v\n", cacheErr)
+	}
+
 	c.JSON(http.StatusOK, wrapper.ResponseWrapper{
-		Data:    response,
+		Data:    &response,
 		Success: true,
 	})
 }
