@@ -99,7 +99,6 @@ func (h *AIAnalyticsHandler) AnalyzeDomainUsage(c *gin.Context) {
 		analysis = h.generateFallbackAnalysis(req)
 	}
 
-	// Кэшируем результат на 1 час
 	cacheErr := h.redisService.Set(ctx, cacheKey, analysis, time.Hour)
 	if cacheErr != nil {
 		fmt.Printf("Failed to cache AI analysis result: %v\n", cacheErr)
@@ -193,14 +192,13 @@ func (h *AIAnalyticsHandler) GetFocusLevel(c *gin.Context) {
 
 	c.Header("X-Cache", "MISS")
 	c.Header("X-Cache-Key", cacheKey)
-	focusLevel := h.aiService.DetermineFocusLevelFallback(domainsCount)
-	insight := h.generateFallbackInsight(domainsCount)
+	focusLevel, _ := h.aiService.AnalyzeFocusWithAI(ctx, domainsCount)
 
 	response := entity.FocusLevelResponse{
-		FocusLevel: focusLevel,
-		Insight:    insight,
-		Method:     "fallback",
-		Timestamp:  time.Now(),
+		FocusLevel: focusLevel.FocusLevel,
+		Insight:    focusLevel.Insight,
+		Method:     focusLevel.Method,
+		Timestamp:  focusLevel.Timestamp,
 	}
 
 	cacheErr := h.redisService.Set(ctx, cacheKey, &response, 6*time.Hour)

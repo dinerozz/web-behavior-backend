@@ -302,6 +302,112 @@ func (s *AIAnalyticsService) callOpenAI(ctx context.Context, request OpenAIReque
 	return openAIResp.Choices[0].Message.Content, nil
 }
 
+func (s *AIAnalyticsService) AnalyzeFocusWithAI(ctx context.Context, domainsCount int) (*entity.FocusLevelResponse, error) {
+	prompt := fmt.Sprintf(`Проанализируй уровень фокуса пользователя:
+
+ДАННЫЕ:
+- Количество уникальных доменов: %d
+- Домены: %s
+
+ЗАДАЧА: Определи уровень фокуса и дай краткий инсайт.
+
+ОТВЕТ в JSON формате:
+{
+  "focus_level": "high|medium|low",
+  "insight": "Краткое объяснение с конкретными наблюдениями",
+  "method": "ai"
+}
+
+ПРАВИЛА:
+- high: ≤5 доменов, фокусированная работа
+- medium: 6-15 доменов, умеренная многозадачность  
+- low: >15 доменов, высокая фрагментация
+- Учитывай типы доменов (рабочие vs развлекательные)`, domainsCount)
+
+	response, err := s.callOpenAIForFocus(ctx, prompt)
+	if err != nil {
+		return nil, err
+	}
+
+	var focusData struct {
+		FocusLevel string `json:"focus_level"`
+		Insight    string `json:"insight"`
+		Method     string `json:"method"`
+	}
+
+	cleanResponse := s.cleanJSONResponse(response)
+	if err := json.Unmarshal([]byte(cleanResponse), &focusData); err != nil {
+		return nil, fmt.Errorf("failed to parse AI focus response: %w", err)
+	}
+
+	return &entity.FocusLevelResponse{
+		FocusLevel: focusData.FocusLevel,
+		Insight:    focusData.Insight,
+		Method:     "ai",
+		Timestamp:  time.Now(),
+	}, nil
+}
+
+func (s *AIAnalyticsService) callOpenAIForFocus(ctx context.Context, prompt string) (string, error) {
+	request := map[string]interface{}{
+		"model": "gpt-4o",
+		"messages": []map[string]string{
+			{
+				"role":    "system",
+				"content": "Ты эксперт по анализу цифрового поведения. Отвечай только в JSON формате без markdown.",
+			},
+			{
+				"role":    "user",
+				"content": prompt,
+			},
+		},
+		"temperature": 0.1,
+		"max_tokens":  200,
+	}
+
+	jsonData, err := json.Marshal(request)
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+s.apiKey)
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("OpenAI API returned status %d", resp.StatusCode)
+	}
+
+	var openAIResp struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&openAIResp); err != nil {
+		return "", err
+	}
+
+	if len(openAIResp.Choices) == 0 {
+		return "", fmt.Errorf("no response from OpenAI")
+	}
+
+	return openAIResp.Choices[0].Message.Content, nil
+}
+
 func (s *AIAnalyticsService) DetermineFocusLevelFallback(domainsCount int) string {
 	switch {
 	case domainsCount <= 5:
