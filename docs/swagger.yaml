@@ -486,21 +486,6 @@ paths:
         name: domains_count
         required: true
         type: integer
-      - description: User id
-        in: query
-        name: user_id
-        required: true
-        type: string
-      - description: start time
-        in: query
-        name: start_time
-        required: true
-        type: string
-      - description: end time
-        in: query
-        name: end_time
-        required: true
-        type: string
       produces:
       - application/json
       responses:

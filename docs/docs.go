@@ -93,27 +93,6 @@ const docTemplate = `{
                         "name": "domains_count",
                         "in": "query",
                         "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "User id",
-                        "name": "user_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "start time",
-                        "name": "start_time",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "end time",
-                        "name": "end_time",
-                        "in": "query",
-                        "required": true
                     }
                 ],
                 "responses": {

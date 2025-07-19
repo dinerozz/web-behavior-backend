@@ -146,9 +146,6 @@ func (h *AIAnalyticsHandler) generateFocusLevelCacheKey(domainsCount int) string
 // @Accept       json
 // @Produce      json
 // @Param        domains_count  query     int  true  "Number of unique domains"
-// @Param        user_id query     string  true  "User id"
-// @Param        start_time  query     string  true "start time"
-// @Param        end_time  query     string  true "end time"
 // @Success      200            {object}  wrapper.ResponseWrapper{data=entity.FocusLevelResponse}
 // @Failure      400            {object}  wrapper.ErrorWrapper
 // @Router       /ai-analytics/focus-level [get]
