@@ -2,7 +2,9 @@ package ai_analytics
 
 import (
 	"context"
+	"crypto/md5"
 	"fmt"
+	"github.com/dinerozz/web-behavior-backend/internal/service/redis"
 	"net/http"
 	"time"
 
@@ -13,7 +15,8 @@ import (
 )
 
 type AIAnalyticsHandler struct {
-	aiService *ai_analytics.AIAnalyticsService
+	aiService    *ai_analytics.AIAnalyticsService
+	redisService redis.ServiceInterface
 }
 
 type AIAnalyticsService interface {
@@ -21,8 +24,21 @@ type AIAnalyticsService interface {
 	DetermineFocusLevelFallback(domainsCount int) string
 }
 
-func NewAIAnalyticsHandler(aiService *ai_analytics.AIAnalyticsService) *AIAnalyticsHandler {
-	return &AIAnalyticsHandler{aiService: aiService}
+func NewAIAnalyticsHandler(aiService *ai_analytics.AIAnalyticsService, redisService redis.ServiceInterface) *AIAnalyticsHandler {
+	return &AIAnalyticsHandler{aiService: aiService, redisService: redisService}
+}
+
+func (h *AIAnalyticsHandler) generateCacheKey(req entity.AIAnalyticsRequest) string {
+	params := fmt.Sprintf("domains_count:%d|domains:%v|deep_work:%+v|engagement_rate:%.2f|tracked_hours:%.2f",
+		req.DomainsCount,
+		req.Domains,
+		req.DeepWork,
+		req.EngagementRate,
+		req.TrackedHours,
+	)
+
+	hash := md5.Sum([]byte(params))
+	return fmt.Sprintf("ai_analytics:domain_usage:%x", hash)
 }
 
 // AnalyzeDomainUsage godoc
@@ -46,48 +62,32 @@ func (h *AIAnalyticsHandler) AnalyzeDomainUsage(c *gin.Context) {
 		return
 	}
 
-	if req.DomainsCount <= 0 {
+	if err := h.validateRequest(req); err != nil {
 		c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
-			Message: "domains_count must be greater than 0",
+			Message: err.Error(),
 			Success: false,
 		})
 		return
 	}
 
-	if len(req.Domains) == 0 {
-		c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
-			Message: "domains list cannot be empty",
-			Success: false,
+	ctx := c.Request.Context()
+	cacheKey := h.generateCacheKey(req)
+
+	var cachedAnalysis entity.DomainAnalysis
+	err := h.redisService.Get(ctx, cacheKey, &cachedAnalysis)
+	if err == nil {
+		c.Header("X-Cache", "HIT")
+		c.JSON(http.StatusOK, wrapper.ResponseWrapper{
+			Data:    &cachedAnalysis,
+			Success: true,
 		})
 		return
 	}
 
-	if req.EngagementRate < 0 || req.EngagementRate > 100 {
-		c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
-			Message: "engagement_rate must be between 0 and 100",
-			Success: false,
-		})
-		return
-	}
-
-	if req.TrackedHours < 0 {
-		c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
-			Message: "tracked_hours must be non-negative",
-			Success: false,
-		})
-		return
-	}
-
-	if req.DeepWork.SessionsCount == 0 && req.EngagementRate == 0 {
-		c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
-			Message: "insufficient data for analysis - need either deep work sessions or engagement activity",
-			Success: false,
-		})
-		return
-	}
+	c.Header("X-Cache", "MISS")
 
 	analysis, err := h.aiService.AnalyzeDomainUsage(
-		c.Request.Context(),
+		ctx,
 		req.DomainsCount,
 		req.Domains,
 		req.DeepWork,
@@ -96,37 +96,43 @@ func (h *AIAnalyticsHandler) AnalyzeDomainUsage(c *gin.Context) {
 	)
 
 	if err != nil {
-		// Fallback на простую логику если AI недоступен
-		analysis = &entity.DomainAnalysis{
-			FocusLevel:      h.aiService.DetermineFocusLevelFallback(req.DomainsCount),
-			FocusInsight:    h.generateFallbackInsight(req.DomainsCount),
-			WorkPattern:     "unknown",
-			Recommendations: []string{"AI анализ временно недоступен"},
-			Analysis: entity.DetailedAnalysis{
-				DomainBreakdown: entity.DomainBreakdown{
-					WorkTools:     []string{},
-					Development:   []string{},
-					Research:      []string{},
-					Communication: []string{},
-					Distractions:  []string{},
-				},
-				ProductivityScore: entity.ProductivityScore{
-					Overall:     0,
-					Focus:       0,
-					Efficiency:  0,
-					Balance:     0,
-					Explanation: "AI анализ недоступен, используется базовая оценка",
-				},
-				BehaviorInsights: []string{"Базовая оценка без AI анализа"},
-				KeyFindings:      []string{"Детальный анализ требует AI сервиса"},
-			},
-		}
+		analysis = h.generateFallbackAnalysis(req)
+	}
+
+	// Кэшируем результат на 1 час
+	cacheErr := h.redisService.Set(ctx, cacheKey, analysis, time.Hour)
+	if cacheErr != nil {
+		fmt.Printf("Failed to cache AI analysis result: %v\n", cacheErr)
 	}
 
 	c.JSON(http.StatusOK, wrapper.ResponseWrapper{
 		Data:    analysis,
 		Success: true,
 	})
+}
+
+func (h *AIAnalyticsHandler) validateRequest(req entity.AIAnalyticsRequest) error {
+	if req.DomainsCount <= 0 {
+		return fmt.Errorf("domains_count must be greater than 0")
+	}
+
+	if len(req.Domains) == 0 {
+		return fmt.Errorf("domains list cannot be empty")
+	}
+
+	if req.EngagementRate < 0 || req.EngagementRate > 100 {
+		return fmt.Errorf("engagement_rate must be between 0 and 100")
+	}
+
+	if req.TrackedHours < 0 {
+		return fmt.Errorf("tracked_hours must be non-negative")
+	}
+
+	if req.DeepWork.SessionsCount == 0 && req.EngagementRate == 0 {
+		return fmt.Errorf("insufficient data for analysis - need either deep work sessions or engagement activity")
+	}
+
+	return nil
 }
 
 // GetFocusLevel godoc
@@ -192,6 +198,33 @@ func (h *AIAnalyticsHandler) generateFallbackInsight(domainsCount int) string {
 		return fmt.Sprintf("Низкая концентрация: %d доменов может указывать на частые переключения контекста", domainsCount)
 	default:
 		return fmt.Sprintf("Очень низкая концентрация: %d доменов указывает на высокую фрагментацию внимания", domainsCount)
+	}
+}
+
+func (h *AIAnalyticsHandler) generateFallbackAnalysis(req entity.AIAnalyticsRequest) *entity.DomainAnalysis {
+	return &entity.DomainAnalysis{
+		FocusLevel:      h.aiService.DetermineFocusLevelFallback(req.DomainsCount),
+		FocusInsight:    h.generateFallbackInsight(req.DomainsCount),
+		WorkPattern:     "unknown",
+		Recommendations: []string{"AI анализ временно недоступен"},
+		Analysis: entity.DetailedAnalysis{
+			DomainBreakdown: entity.DomainBreakdown{
+				WorkTools:     []string{},
+				Development:   []string{},
+				Research:      []string{},
+				Communication: []string{},
+				Distractions:  []string{},
+			},
+			ProductivityScore: entity.ProductivityScore{
+				Overall:     0,
+				Focus:       0,
+				Efficiency:  0,
+				Balance:     0,
+				Explanation: "AI анализ недоступен, используется базовая оценка",
+			},
+			BehaviorInsights: []string{"Базовая оценка без AI анализа"},
+			KeyFindings:      []string{"Детальный анализ требует AI сервиса"},
+		},
 	}
 }
 

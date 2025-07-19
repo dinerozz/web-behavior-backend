@@ -92,7 +92,7 @@ func RunServer(config *config.Config) {
 	userBehaviorHandler := handler.NewUserBehaviorHandler(userBehaviorService)
 	userExtensionHandler := userExtensionHandler.NewExtensionUserHandler(userExtensionService)
 	userMetricsHandler := metrics.NewMetricsHandler(userMetricsService)
-	aiAnalyticsHandler := aiHandler.NewAIAnalyticsHandler(aiService)
+	aiAnalyticsHandler := aiHandler.NewAIAnalyticsHandler(aiService, redisService)
 
 	routerHandler := &RouterHandler{
 		userHandler:          userHandler,
