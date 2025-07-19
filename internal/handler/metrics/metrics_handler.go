@@ -203,13 +203,11 @@ func (h *MetricsHandler) GetEngagedTime(c *gin.Context) {
 	ctx := c.Request.Context()
 	cacheKey := h.generateEngagedTimeCacheKey(filter)
 
-	// Попытка получить данные из кэша
 	var cachedMetric entity.EngagedTimeMetric
 	err = h.redisService.Get(ctx, cacheKey, &cachedMetric)
 	if err == nil {
-		// Данные найдены в кэше
 		c.Header("X-Cache", "HIT")
-		c.Header("X-Cache-Key", cacheKey) // Для отладки
+		c.Header("X-Cache-Key", cacheKey) // debug
 		c.JSON(http.StatusOK, entity.EngagedTimeResponse{
 			Data:    &cachedMetric,
 			Success: true,
@@ -217,9 +215,8 @@ func (h *MetricsHandler) GetEngagedTime(c *gin.Context) {
 		return
 	}
 
-	// Данные не найдены в кэше, выполняем запрос к базе данных
 	c.Header("X-Cache", "MISS")
-	c.Header("X-Cache-Key", cacheKey) // Для отладки
+	c.Header("X-Cache-Key", cacheKey) // debug
 
 	metric, err := h.service.GetEngagedTime(ctx, filter)
 	if err != nil {
@@ -230,10 +227,8 @@ func (h *MetricsHandler) GetEngagedTime(c *gin.Context) {
 		return
 	}
 
-	// Кэшируем результат на 1 час
 	cacheErr := h.redisService.Set(ctx, cacheKey, metric, time.Hour)
 	if cacheErr != nil {
-		// Логируем ошибку кэширования, но не прерываем выполнение
 		fmt.Printf("Failed to cache engaged time result: %v\n", cacheErr)
 	}
 
