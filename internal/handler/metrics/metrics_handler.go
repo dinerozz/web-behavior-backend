@@ -321,7 +321,17 @@ func (h *MetricsHandler) GetEngagedTime(c *gin.Context) {
 //	})
 //}
 
-// GetTopDomains остается без изменений
+func (h *MetricsHandler) generateTopDomainsCacheKey(filter entity.TopDomainsFilter) string {
+	params := fmt.Sprintf("user_id:%s|limit:%d|session_id:%v",
+		filter.UserID,
+		filter.Limit,
+		filter.SessionID,
+	)
+
+	hash := md5.Sum([]byte(params))
+	return fmt.Sprintf("metrics:top_domains:%x", hash)
+}
+
 func (h *MetricsHandler) GetTopDomains(c *gin.Context) {
 	var filter entity.TopDomainsFilter
 
@@ -350,6 +360,24 @@ func (h *MetricsHandler) GetTopDomains(c *gin.Context) {
 		filter.SessionID = &sessionID
 	}
 
+	ctx := c.Request.Context()
+	cacheKey := h.generateTopDomainsCacheKey(filter)
+
+	var cachedResult entity.TopDomainsResponse
+	err := h.redisService.Get(ctx, cacheKey, &cachedResult)
+	if err == nil {
+		c.Header("X-Cache", "HIT")
+		c.Header("X-Cache-Key", cacheKey)
+		c.JSON(http.StatusOK, wrapper.ResponseWrapper{
+			Data:    &cachedResult,
+			Success: true,
+		})
+		return
+	}
+
+	c.Header("X-Cache", "MISS")
+	c.Header("X-Cache-Key", cacheKey)
+
 	result, err := h.service.GetTopDomains(c.Request.Context(), filter)
 	if err != nil {
 		fmt.Println("Failed to get top domains", "error", err)
@@ -360,13 +388,17 @@ func (h *MetricsHandler) GetTopDomains(c *gin.Context) {
 		return
 	}
 
+	cacheErr := h.redisService.Set(ctx, cacheKey, result, 30*time.Minute)
+	if cacheErr != nil {
+		fmt.Printf("Failed to cache top domains result: %v\n", cacheErr)
+	}
+
 	c.JSON(http.StatusOK, wrapper.ResponseWrapper{
 		Data:    result,
 		Success: true,
 	})
 }
 
-// GetDeepWorkSessions остается без изменений
 func (h *MetricsHandler) GetDeepWorkSessions(c *gin.Context) {
 	userID := c.Query("user_id")
 	startTimeStr := c.Query("start_time")
@@ -457,7 +489,6 @@ func (h *MetricsHandler) GetDeepWorkSessions(c *gin.Context) {
 	})
 }
 
-// RegisterRoutes регистрирует маршруты для метрик
 func (h *MetricsHandler) RegisterRoutes(router *gin.RouterGroup) {
 	metrics := router.Group("/metrics")
 	{
