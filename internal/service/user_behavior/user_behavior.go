@@ -7,7 +7,7 @@ import (
 
 	"github.com/dinerozz/web-behavior-backend/internal/entity"
 	"github.com/dinerozz/web-behavior-backend/internal/repository"
-	"github.com/google/uuid"
+	"github.com/gofrs/uuid"
 )
 
 type UserBehaviorService interface {
@@ -63,10 +63,9 @@ func (s *userBehaviorService) CreateBehavior(ctx context.Context, req entity.Cre
 		Type:      req.Type,
 		URL:       req.URL,
 		UserID:    req.UserID,
-		UserName:  req.UserName,
 		X:         req.X,
 		Y:         req.Y,
-		Key:       req.Key,
+		//Key:       req.Key,
 	}
 
 	if err := s.repo.Create(ctx, behavior); err != nil {
@@ -102,10 +101,9 @@ func (s *userBehaviorService) BatchCreateBehaviors(ctx context.Context, req enti
 			Type:      event.Type,
 			URL:       event.URL,
 			UserID:    event.UserID,
-			UserName:  event.UserName,
 			X:         event.X,
 			Y:         event.Y,
-			Key:       event.Key,
+			//Key:       event.Key,
 		}
 
 		behaviors = append(behaviors, behavior)

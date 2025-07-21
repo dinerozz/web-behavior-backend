@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS user_behaviors (
-                                              id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
     session_id VARCHAR(255) NOT NULL,
     timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
                             event_type VARCHAR(50) NOT NULL,

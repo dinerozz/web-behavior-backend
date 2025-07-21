@@ -6,30 +6,29 @@ import (
 )
 
 type UserBehavior struct {
-	ID        uuid.UUID `json:"id" db:"id"`
-	SessionID string    `json:"sessionId" db:"session_id" binding:"required"`
-	Timestamp time.Time `json:"ts" db:"timestamp" binding:"required"`
-	Type      string    `json:"type" db:"event_type" binding:"required"`
-	URL       string    `json:"url" db:"url" binding:"required"`
-	UserID    *string   `json:"userId" db:"user_id"`
-	UserName  *string   `json:"userName" db:"user_name"`
-	X         *int      `json:"x,omitempty" db:"x"`
-	Y         *int      `json:"y,omitempty" db:"y"`
-	Key       *string   `json:"key,omitempty" db:"key"`
-	CreatedAt time.Time `json:"createdAt" db:"created_at"`
-	UpdatedAt time.Time `json:"updatedAt" db:"updated_at"`
+	ID        uuid.UUID  `json:"id" db:"id"`
+	SessionID string     `json:"sessionId" db:"session_id" binding:"required"`
+	Timestamp time.Time  `json:"ts" db:"timestamp" binding:"required"`
+	Type      string     `json:"type" db:"event_type" binding:"required"`
+	URL       string     `json:"url" db:"url" binding:"required"`
+	UserID    *uuid.UUID `json:"userId" db:"user_id"`
+	UserName  *string    `json:"userName" db:"user_name"`
+	X         *int       `json:"x,omitempty" db:"x"`
+	Y         *int       `json:"y,omitempty" db:"y"`
+	Key       *string    `json:"key,omitempty" db:"key"`
+	CreatedAt time.Time  `json:"createdAt" db:"created_at"`
+	UpdatedAt time.Time  `json:"updatedAt" db:"updated_at"`
 }
 
 type CreateUserBehaviorRequest struct {
-	SessionID string    `json:"sessionId" binding:"required"`
-	Timestamp time.Time `json:"ts" binding:"required"`
-	Type      string    `json:"type" binding:"required"`
-	URL       string    `json:"url"`
-	UserID    *string   `json:"userId"`
-	UserName  *string   `json:"userName"`
-	X         *int      `json:"x,omitempty"`
-	Y         *int      `json:"y,omitempty"`
-	Key       *string   `json:"key,omitempty"`
+	SessionID string     `json:"sessionId" binding:"required"`
+	Timestamp time.Time  `json:"ts" binding:"required"`
+	Type      string     `json:"type" binding:"required"`
+	URL       string     `json:"url"`
+	UserID    *uuid.UUID `json:"userId"`
+	X         *int       `json:"x,omitempty"`
+	Y         *int       `json:"y,omitempty"`
+	Key       *string    `json:"key,omitempty"`
 }
 
 type BatchCreateUserBehaviorRequest struct {
@@ -37,7 +36,7 @@ type BatchCreateUserBehaviorRequest struct {
 }
 
 type UserBehaviorFilter struct {
-	UserID    *string    `json:"user_id"`
+	UserID    *uuid.UUID `json:"user_id"`
 	SessionID *string    `json:"session_id"`
 	EventType *string    `json:"event_type"`
 	URL       *string    `json:"url"`

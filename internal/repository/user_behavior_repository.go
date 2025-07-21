@@ -6,15 +6,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	uuid2 "github.com/gofrs/uuid"
-	"github.com/google/uuid"
+	"github.com/dinerozz/web-behavior-backend/internal/entity"
+	"github.com/gofrs/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"strconv"
 	"strings"
-	"time"
-
-	"github.com/dinerozz/web-behavior-backend/internal/entity"
-	"github.com/jmoiron/sqlx"
 )
 
 type UserBehaviorRepository interface {
@@ -40,13 +37,9 @@ func NewUserBehaviorRepository(db *sqlx.DB) UserBehaviorRepository {
 }
 
 func (r *userBehaviorRepository) Create(ctx context.Context, behavior *entity.UserBehavior) error {
-	behavior.ID = uuid2.UUID(uuid.New())
-	behavior.CreatedAt = time.Now().UTC()
-	behavior.UpdatedAt = time.Now().UTC()
-
 	query := `
-		INSERT INTO user_behaviors (id, session_id, timestamp, event_type, url, user_id, user_name, x, y, key, created_at, updated_at)
-		VALUES (:id, :session_id, :timestamp, :event_type, :url, :user_id, :user_name, :x, :y, :key, :created_at, :updated_at)`
+		INSERT INTO user_behaviors (id, session_id, timestamp, event_type, url, user_id, x, y, key, created_at, updated_at)
+		VALUES (:id, :session_id, :timestamp, :event_type, :url, :user_id, :x, :y, :key, :created_at, :updated_at)`
 
 	_, err := r.db.NamedExecContext(ctx, query, behavior)
 	return err
@@ -64,14 +57,8 @@ func (r *userBehaviorRepository) BatchCreate(ctx context.Context, behaviors []en
 	defer tx.Rollback()
 
 	query := `
-		INSERT INTO user_behaviors (id, session_id, timestamp, event_type, url, user_id, user_name, x, y, key, created_at, updated_at)
-		VALUES (:id, :session_id, :timestamp, :event_type, :url, :user_id, :user_name, :x, :y, :key, :created_at, :updated_at)`
-
-	for i := range behaviors {
-		behaviors[i].ID = uuid2.UUID(uuid.New())
-		behaviors[i].CreatedAt = time.Now().UTC()
-		behaviors[i].UpdatedAt = time.Now().UTC()
-	}
+		INSERT INTO user_behaviors (session_id, timestamp, event_type, url, user_id, x, y, key, created_at, updated_at)
+		VALUES (:session_id, :timestamp, :event_type, :url, :user_id, :x, :y, :key, :created_at, :updated_at)`
 
 	_, err = tx.NamedExecContext(ctx, query, behaviors)
 	if err != nil {
@@ -100,59 +87,61 @@ func (r *userBehaviorRepository) GetByFilter(ctx context.Context, filter entity.
 	var behaviors []entity.UserBehavior
 
 	query := `SELECT 
-		id, session_id, event_type, url, user_id, user_name, x, y, key,
-		timestamp,
-		created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' as created_at,
-		updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' as updated_at
-	FROM user_behaviors WHERE 1=1`
+    ub.id, ub.session_id, ub.event_type, ub.url, ub.user_id, ub.x, ub.y, ub.key,
+    ub.timestamp,
+    ub.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' as created_at,
+    ub.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Almaty' as updated_at,
+    eu.username as user_name
+FROM user_behaviors ub
+LEFT JOIN extension_users eu ON ub.user_id = eu.id
+WHERE 1=1`
 
-	args := []interface{}{}
+	var args []interface{}
 	argIndex := 1
 
 	if filter.UserID != nil {
-		query += fmt.Sprintf(" AND user_id = $%d", argIndex)
-		args = append(args, *filter.UserID)
+		query += fmt.Sprintf(" AND ub.user_id = $%d", argIndex)
+		args = append(args, filter.UserID)
 		argIndex++
 	}
 
 	if filter.SessionID != nil {
-		query += fmt.Sprintf(" AND session_id = $%d", argIndex)
+		query += fmt.Sprintf(" AND ub.session_id = $%d", argIndex)
 		args = append(args, *filter.SessionID)
 		argIndex++
 	}
 
 	if filter.EventType != nil {
-		query += fmt.Sprintf(" AND event_type = $%d", argIndex)
+		query += fmt.Sprintf(" AND ub.event_type = $%d", argIndex)
 		args = append(args, *filter.EventType)
 		argIndex++
 	}
 
 	if filter.URL != nil {
-		query += fmt.Sprintf(" AND url ILIKE $%d", argIndex)
+		query += fmt.Sprintf(" AND ub.url ILIKE $%d", argIndex)
 		args = append(args, "%"+*filter.URL+"%")
 		argIndex++
 	}
 
 	if filter.StartTime != nil {
-		query += fmt.Sprintf(" AND timestamp >= $%d", argIndex)
+		query += fmt.Sprintf(" AND ub.timestamp >= $%d", argIndex)
 		args = append(args, *filter.StartTime)
 		argIndex++
 	}
 
 	if filter.EndTime != nil {
-		query += fmt.Sprintf(" AND timestamp <= $%d", argIndex)
+		query += fmt.Sprintf(" AND ub.timestamp <= $%d", argIndex)
 		args = append(args, *filter.EndTime)
 		argIndex++
 	}
 
-	query += " ORDER BY timestamp DESC"
+	query += " ORDER BY ub.timestamp DESC"
 
 	if filter.Page > 0 && filter.PerPage > 0 {
 		offset := (filter.Page - 1) * filter.PerPage
 		query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
 		args = append(args, filter.PerPage, offset)
 	} else {
-		// Старая логика для совместимости
 		if filter.Limit > 0 {
 			query += fmt.Sprintf(" LIMIT $%d", argIndex)
 			args = append(args, filter.Limit)
@@ -170,12 +159,12 @@ func (r *userBehaviorRepository) GetByFilter(ctx context.Context, filter entity.
 
 func (r *userBehaviorRepository) CountByFilter(ctx context.Context, filter entity.UserBehaviorFilter) (int, error) {
 	query := "SELECT COUNT(*) FROM user_behaviors WHERE 1=1"
-	args := []interface{}{}
+	var args []interface{}
 	argIndex := 1
 
 	if filter.UserID != nil {
-		query += fmt.Sprintf(" AND user_id = $%d", argIndex)
-		args = append(args, *filter.UserID)
+		query += fmt.Sprintf(" AND ub.user_id = $%d", argIndex)
+		args = append(args, filter.UserID)
 		argIndex++
 	}
 

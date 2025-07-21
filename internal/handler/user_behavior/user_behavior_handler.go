@@ -4,6 +4,7 @@ package handler
 import (
 	"fmt"
 	service "github.com/dinerozz/web-behavior-backend/internal/service/user_behavior"
+	"github.com/dinerozz/web-behavior-backend/pkg/utils"
 	"net/http"
 	"strconv"
 	"strings"
@@ -12,7 +13,7 @@ import (
 	"github.com/dinerozz/web-behavior-backend/internal/entity"
 	"github.com/dinerozz/web-behavior-backend/internal/model/response/wrapper"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
+	"github.com/gofrs/uuid"
 )
 
 type UserBehaviorHandler struct {
@@ -106,7 +107,7 @@ func (h *UserBehaviorHandler) BatchCreateBehaviors(c *gin.Context) {
 // @Router       /behaviors/{id} [get]
 func (h *UserBehaviorHandler) GetBehaviorByID(c *gin.Context) {
 	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
+	id, err := uuid.FromString(idStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
 			Message: "Invalid UUID format",
@@ -157,9 +158,18 @@ func (h *UserBehaviorHandler) GetBehaviorByID(c *gin.Context) {
 func (h *UserBehaviorHandler) GetBehaviors(c *gin.Context) {
 	var filter entity.UserBehaviorFilter
 
-	// Парсинг query параметров
-	if userID := c.Query("userId"); userID != "" {
-		filter.UserID = &userID
+	if userID := c.Query("user_id"); userID != "" {
+		if !utils.ValidateUUID(userID) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format for userId"})
+			return
+		}
+
+		userUUID, err := uuid.FromString(userID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{Message: "Invalid UUID format", Success: false})
+			return
+		}
+		filter.UserID = &userUUID
 	}
 
 	if sessionID := c.Query("sessionId"); sessionID != "" {
@@ -174,7 +184,6 @@ func (h *UserBehaviorHandler) GetBehaviors(c *gin.Context) {
 		filter.URL = &url
 	}
 
-	// Обработка периода времени
 	if period := c.Query("period"); period != "" {
 		startTime, endTime, err := h.getPeriodTimeRange(period)
 		if err != nil {
@@ -186,7 +195,6 @@ func (h *UserBehaviorHandler) GetBehaviors(c *gin.Context) {
 		filter.StartTime = &startTime
 		filter.EndTime = &endTime
 	} else {
-		// Обработка точных дат (если period не указан)
 		if startTimeStr := c.Query("startTime"); startTimeStr != "" {
 			startTime, err := time.Parse(time.RFC3339, startTimeStr)
 			if err != nil {
@@ -231,11 +239,9 @@ func (h *UserBehaviorHandler) GetBehaviors(c *gin.Context) {
 		}
 		filter.PerPage = perPage
 	} else if filter.Page > 0 {
-		// Значение по умолчанию для per_page если указан page
 		filter.PerPage = 20
 	}
 
-	// Старые параметры (для совместимости)
 	if limitStr := c.Query("limit"); limitStr != "" {
 		limit, err := strconv.Atoi(limitStr)
 		if err != nil {
@@ -386,9 +392,18 @@ func (h *UserBehaviorHandler) GetBehaviorsPeriods(c *gin.Context) {
 func (h *UserBehaviorHandler) GetStats(c *gin.Context) {
 	var filter entity.UserBehaviorFilter
 
-	// Парсинг тех же параметров что и для GetBehaviors
 	if userID := c.Query("userId"); userID != "" {
-		filter.UserID = &userID
+		if !utils.ValidateUUID(userID) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format for userId"})
+			return
+		}
+
+		userUUID, err := uuid.FromString(userID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{Message: "Invalid UUID format", Success: false})
+			return
+		}
+		filter.UserID = &userUUID
 	}
 
 	if sessionID := c.Query("sessionId"); sessionID != "" {
@@ -591,7 +606,7 @@ func (h *UserBehaviorHandler) GetUserSessions(c *gin.Context) {
 // @Router       /behaviors/{id} [delete]
 func (h *UserBehaviorHandler) DeleteBehavior(c *gin.Context) {
 	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
+	id, err := uuid.FromString(idStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{
 			Message: "Invalid UUID format",
