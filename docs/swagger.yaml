@@ -1415,7 +1415,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Create new organization
       tags:
-      - /api/v1/admin/organizations
+      - /api/v1/organizations
   /organizations/{id}:
     delete:
       consumes:
@@ -1456,7 +1456,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Delete organization
       tags:
-      - /api/v1/admin/organizations
+      - /api/v1/organizations
     get:
       consumes:
       - application/json
@@ -1501,7 +1501,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Get organization by ID
       tags:
-      - /api/v1/admin/organizations
+      - /api/v1/organizations
     put:
       consumes:
       - application/json
@@ -1552,7 +1552,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Update organization
       tags:
-      - /api/v1/admin/organizations
+      - /api/v1/organizations
   /organizations/{id}/members:
     get:
       consumes:
@@ -1599,7 +1599,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Get organization with members
       tags:
-      - /api/v1/admin/organizations
+      - /api/v1/organizations
   /organizations/{id}/users:
     post:
       consumes:
@@ -1646,7 +1646,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Add user to organization
       tags:
-      - /api/v1/admin/organizations
+      - /api/v1/organizations
   /organizations/{id}/users/{user_id}:
     delete:
       consumes:
@@ -1692,7 +1692,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Remove user from organization
       tags:
-      - /api/v1/admin/organizations
+      - /api/v1/organizations
   /organizations/{id}/users/{user_id}/role:
     put:
       consumes:
@@ -1747,7 +1747,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Update user role in organization
       tags:
-      - /api/v1/admin/organizations
+      - /api/v1/organizations
   /organizations/my:
     get:
       consumes:
@@ -1775,7 +1775,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Get user's organizations
       tags:
-      - /api/v1/admin/organizations
+      - /api/v1/organizations
   /users/auth:
     post:
       consumes:
