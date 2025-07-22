@@ -8,6 +8,7 @@ import (
 	aiHandler "github.com/dinerozz/web-behavior-backend/internal/handler/ai-analytics"
 	userExtensionHandler "github.com/dinerozz/web-behavior-backend/internal/handler/extension_user"
 	"github.com/dinerozz/web-behavior-backend/internal/handler/metrics"
+	organizationHandler "github.com/dinerozz/web-behavior-backend/internal/handler/organization"
 	userHandler "github.com/dinerozz/web-behavior-backend/internal/handler/user"
 	handler "github.com/dinerozz/web-behavior-backend/internal/handler/user_behavior"
 	userBehaviorHandler "github.com/dinerozz/web-behavior-backend/internal/handler/user_behavior"
@@ -15,6 +16,7 @@ import (
 	aiAnalyticsService "github.com/dinerozz/web-behavior-backend/internal/service/ai_analytics"
 	extensionUserService "github.com/dinerozz/web-behavior-backend/internal/service/extension_user"
 	metricsService "github.com/dinerozz/web-behavior-backend/internal/service/metrics_service"
+	organizationService "github.com/dinerozz/web-behavior-backend/internal/service/organization"
 	"github.com/dinerozz/web-behavior-backend/internal/service/redis"
 	"github.com/dinerozz/web-behavior-backend/internal/service/user"
 	service "github.com/dinerozz/web-behavior-backend/internal/service/user_behavior"
@@ -39,6 +41,7 @@ type RouterHandler struct {
 	userExtensionService extensionUserService.ExtensionUserService
 	userMetricsHandler   *metrics.MetricsHandler
 	aiAnalyticsHandler   *aiHandler.AIAnalyticsHandler
+	organizationHandler  *organizationHandler.OrganizationHandler
 }
 
 func RunServer(config *config.Config) {
@@ -75,24 +78,30 @@ func RunServer(config *config.Config) {
 	}
 	defer redisService.Close()
 
+	// Initialize repositories
 	userRepo := repository.NewUserRepository(db)
 	userBehaviorRepo := repository.NewUserBehaviorRepository(db)
 	userExtensionRepo := repository.NewExtensionUserRepository(db)
 	userMetricsRepo := repository.NewMetricsRepository(db)
+	organizationRepo := repository.NewOrganizationRepository(db)
 
+	// Initialize services
 	userSrv := user.NewUserService(userRepo)
 	userBehaviorService := service.NewUserBehaviorService(userBehaviorRepo)
 	userExtensionService := extensionUserService.NewExtensionUserService(userExtensionRepo)
+	organizationSrv := organizationService.NewOrganizationService(organizationRepo, userRepo)
 
 	aiService := aiAnalyticsService.NewAIAnalyticsService("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")
 
 	userMetricsService := metricsService.NewMetricsService(userMetricsRepo, aiService)
 
-	userHandler := userHandler.NewUserHandler(userSrv)
+	// Initialize handlers
+	userHandler := userHandler.NewUserHandler(userSrv, organizationSrv)
 	userBehaviorHandler := handler.NewUserBehaviorHandler(userBehaviorService)
 	userExtensionHandler := userExtensionHandler.NewExtensionUserHandler(userExtensionService)
 	userMetricsHandler := metrics.NewMetricsHandler(userMetricsService, redisService)
 	aiAnalyticsHandler := aiHandler.NewAIAnalyticsHandler(aiService, redisService)
+	organizationHandler := organizationHandler.NewOrganizationHandler(organizationSrv)
 
 	routerHandler := &RouterHandler{
 		userHandler:          userHandler,
@@ -101,6 +110,7 @@ func RunServer(config *config.Config) {
 		userExtensionService: userExtensionService,
 		userMetricsHandler:   userMetricsHandler,
 		aiAnalyticsHandler:   aiAnalyticsHandler,
+		organizationHandler:  organizationHandler,
 	}
 
 	r := setupRouter(routerHandler)
@@ -190,6 +200,7 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
+	// Public routes for data collection
 	publicRoutes := r.Group("/api/v1/inayla")
 	{
 		publicRoutes.POST("/behaviors", routerHandler.userBehaviorHandler.CreateBehavior)
@@ -202,19 +213,39 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 		}
 	}
 
+	// Public admin authentication routes
 	publicAdminRoutes := r.Group("/api/v1/admin")
 	{
 		publicAdminRoutes.POST("/users/auth", routerHandler.userHandler.CreateOrAuthUserWithPassword)
 	}
 
-	fmt.Println("test")
-
+	// Private authenticated routes
 	privateRoutes := r.Group("/api/v1/admin")
 	privateRoutes.Use(middleware.AuthenticationMiddleware())
 	{
-
+		// User routes
 		privateRoutes.GET("/users/profile", routerHandler.userHandler.GetUserById)
+		privateRoutes.GET("/users/profile/full", routerHandler.userHandler.GetUserWithOrganizations)
 		privateRoutes.POST("/users/logout", routerHandler.userHandler.Logout)
+
+		// Organization routes
+		orgRoutes := privateRoutes.Group("/organizations")
+		{
+			// Organization CRUD
+			orgRoutes.POST("", routerHandler.organizationHandler.CreateOrganization)
+			orgRoutes.GET("/my", routerHandler.organizationHandler.GetUserOrganizations)
+			orgRoutes.GET("/:id", routerHandler.organizationHandler.GetOrganization)
+			orgRoutes.GET("/:id/members", routerHandler.organizationHandler.GetOrganizationWithMembers)
+			orgRoutes.PUT("/:id", routerHandler.organizationHandler.UpdateOrganization)
+			orgRoutes.DELETE("/:id", routerHandler.organizationHandler.DeleteOrganization)
+
+			// User management within organizations
+			orgRoutes.POST("/:id/users", routerHandler.organizationHandler.AddUserToOrganization)
+			orgRoutes.DELETE("/:id/users/:user_id", routerHandler.organizationHandler.RemoveUserFromOrganization)
+			orgRoutes.PUT("/:id/users/:user_id/role", routerHandler.organizationHandler.UpdateUserRole)
+		}
+
+		// Behavior analytics routes
 		privateRoutes.GET("/behaviors", routerHandler.userBehaviorHandler.GetBehaviors)
 		privateRoutes.GET("/behaviors/periods", routerHandler.userBehaviorHandler.GetBehaviorsPeriods)
 		privateRoutes.GET("/behaviors/stats", routerHandler.userBehaviorHandler.GetStats)
@@ -222,29 +253,30 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 		privateRoutes.GET("/behaviors/:id", routerHandler.userBehaviorHandler.GetBehaviorByID)
 		privateRoutes.GET("/behaviors/users/:userId/sessions", routerHandler.userBehaviorHandler.GetUserSessions)
 		privateRoutes.GET("/behaviors/user-events", routerHandler.userBehaviorHandler.GetUserEventsCount)
+		privateRoutes.DELETE("/behaviors/:id", routerHandler.userBehaviorHandler.DeleteBehavior)
 
+		// AI analytics routes
 		privateRoutes.POST("/ai-analytics/domain-usage", routerHandler.aiAnalyticsHandler.AnalyzeDomainUsage)
 		privateRoutes.GET("/ai-analytics/focus-level", routerHandler.aiAnalyticsHandler.GetFocusLevel)
 
+		// Metrics routes
 		privateRoutes.GET("/metrics/tracked-time", routerHandler.userMetricsHandler.GetTrackedTime)
 		privateRoutes.GET("/metrics/tracked-time-total", routerHandler.userMetricsHandler.GetTrackedTimeTotal)
 		privateRoutes.GET("/metrics/engaged-time", routerHandler.userMetricsHandler.GetEngagedTime)
 		privateRoutes.GET("/metrics/top-domains", routerHandler.userMetricsHandler.GetTopDomains)
 		privateRoutes.GET("/metrics/deep-work-sessions", routerHandler.userMetricsHandler.GetDeepWorkSessions)
 
-		privateRoutes.DELETE("/behaviors/:id", routerHandler.userBehaviorHandler.DeleteBehavior)
-
+		// Extension management routes
 		extensionRoutes := privateRoutes.Group("/extension")
-		extensionRoutes.POST("/users/generate", routerHandler.userExtensionHandler.CreateExtensionUser)
-		extensionRoutes.POST("/users/:id/regenerate-key", routerHandler.userExtensionHandler.RegenerateAPIKey)
-
-		extensionRoutes.GET("/users", routerHandler.userExtensionHandler.GetAllExtensionUsers)
-		extensionRoutes.GET("/users/:id", routerHandler.userExtensionHandler.GetExtensionUserByID)
-		extensionRoutes.GET("/users/stats", routerHandler.userExtensionHandler.GetExtensionUserStats)
-
-		extensionRoutes.DELETE("/users/:id", routerHandler.userExtensionHandler.DeleteExtensionUser)
-
-		extensionRoutes.PUT("/users/:id", routerHandler.userExtensionHandler.UpdateExtensionUser)
+		{
+			extensionRoutes.POST("/users/generate", routerHandler.userExtensionHandler.CreateExtensionUser)
+			extensionRoutes.POST("/users/:id/regenerate-key", routerHandler.userExtensionHandler.RegenerateAPIKey)
+			extensionRoutes.GET("/users", routerHandler.userExtensionHandler.GetAllExtensionUsers)
+			extensionRoutes.GET("/users/:id", routerHandler.userExtensionHandler.GetExtensionUserByID)
+			extensionRoutes.GET("/users/stats", routerHandler.userExtensionHandler.GetExtensionUserStats)
+			extensionRoutes.DELETE("/users/:id", routerHandler.userExtensionHandler.DeleteExtensionUser)
+			extensionRoutes.PUT("/users/:id", routerHandler.userExtensionHandler.UpdateExtensionUser)
+		}
 	}
 
 	return r
