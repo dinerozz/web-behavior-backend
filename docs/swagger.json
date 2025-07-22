@@ -1378,7 +1378,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "/api/v1/admin/organizations"
+                    "/api/v1/organizations"
                 ],
                 "summary": "Create new organization",
                 "parameters": [
@@ -1442,7 +1442,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "/api/v1/admin/organizations"
+                    "/api/v1/organizations"
                 ],
                 "summary": "Get user's organizations",
                 "responses": {
@@ -1489,7 +1489,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "/api/v1/admin/organizations"
+                    "/api/v1/organizations"
                 ],
                 "summary": "Get organization by ID",
                 "parameters": [
@@ -1561,7 +1561,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "/api/v1/admin/organizations"
+                    "/api/v1/organizations"
                 ],
                 "summary": "Update organization",
                 "parameters": [
@@ -1642,7 +1642,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "/api/v1/admin/organizations"
+                    "/api/v1/organizations"
                 ],
                 "summary": "Delete organization",
                 "parameters": [
@@ -1704,7 +1704,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "/api/v1/admin/organizations"
+                    "/api/v1/organizations"
                 ],
                 "summary": "Get organization with members",
                 "parameters": [
@@ -1778,7 +1778,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "/api/v1/admin/organizations"
+                    "/api/v1/organizations"
                 ],
                 "summary": "Add user to organization",
                 "parameters": [
@@ -1849,7 +1849,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "/api/v1/admin/organizations"
+                    "/api/v1/organizations"
                 ],
                 "summary": "Remove user from organization",
                 "parameters": [
@@ -1918,7 +1918,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "/api/v1/admin/organizations"
+                    "/api/v1/organizations"
                 ],
                 "summary": "Update user role in organization",
                 "parameters": [

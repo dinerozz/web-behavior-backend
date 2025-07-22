@@ -20,7 +20,7 @@ func NewOrganizationHandler(srv *organization.OrganizationService) *Organization
 // CreateOrganization godoc
 // @Summary Create new organization
 // @Description Create a new organization with the authenticated user as admin
-// @Tags /api/v1/admin/organizations
+// @Tags /api/v1/organizations
 // @Accept json
 // @Produce json
 // @Param organization body request.CreateOrganization true "Organization object"
@@ -60,7 +60,7 @@ func (h *OrganizationHandler) CreateOrganization(c *gin.Context) {
 // GetOrganization godoc
 // @Summary Get organization by ID
 // @Description Get organization details by ID (user must have access)
-// @Tags /api/v1/admin/organizations
+// @Tags /api/v1/organizations
 // @Accept json
 // @Produce json
 // @Param id path string true "Organization ID"
@@ -107,7 +107,7 @@ func (h *OrganizationHandler) GetOrganization(c *gin.Context) {
 // GetOrganizationWithMembers godoc
 // @Summary Get organization with members
 // @Description Get organization details including member list (user must have access)
-// @Tags /api/v1/admin/organizations
+// @Tags /api/v1/organizations
 // @Accept json
 // @Produce json
 // @Param id path string true "Organization ID"
@@ -154,7 +154,7 @@ func (h *OrganizationHandler) GetOrganizationWithMembers(c *gin.Context) {
 // UpdateOrganization godoc
 // @Summary Update organization
 // @Description Update organization details (admin only)
-// @Tags /api/v1/admin/organizations
+// @Tags /api/v1/organizations
 // @Accept json
 // @Produce json
 // @Param id path string true "Organization ID"
@@ -208,7 +208,7 @@ func (h *OrganizationHandler) UpdateOrganization(c *gin.Context) {
 // DeleteOrganization godoc
 // @Summary Delete organization
 // @Description Delete organization (admin only)
-// @Tags /api/v1/admin/organizations
+// @Tags /api/v1/organizations
 // @Accept json
 // @Produce json
 // @Param id path string true "Organization ID"
@@ -255,7 +255,7 @@ func (h *OrganizationHandler) DeleteOrganization(c *gin.Context) {
 // GetUserOrganizations godoc
 // @Summary Get user's organizations
 // @Description Get list of organizations user has access to
-// @Tags /api/v1/admin/organizations
+// @Tags /api/v1/organizations
 // @Accept json
 // @Produce json
 // @Success 200 {object} wrapper.ResponseWrapper{data=response.UserOrganizations}
@@ -287,7 +287,7 @@ func (h *OrganizationHandler) GetUserOrganizations(c *gin.Context) {
 // AddUserToOrganization godoc
 // @Summary Add user to organization
 // @Description Add user to organization (admin only)
-// @Tags /api/v1/admin/organizations
+// @Tags /api/v1/organizations
 // @Accept json
 // @Produce json
 // @Param id path string true "Organization ID"
@@ -345,7 +345,7 @@ func (h *OrganizationHandler) AddUserToOrganization(c *gin.Context) {
 // RemoveUserFromOrganization godoc
 // @Summary Remove user from organization
 // @Description Remove user from organization (admin only)
-// @Tags /api/v1/admin/organizations
+// @Tags /api/v1/organizations
 // @Accept json
 // @Produce json
 // @Param id path string true "Organization ID"
@@ -404,7 +404,7 @@ func (h *OrganizationHandler) RemoveUserFromOrganization(c *gin.Context) {
 // UpdateUserRole godoc
 // @Summary Update user role in organization
 // @Description Update user role in organization (admin only)
-// @Tags /api/v1/admin/organizations
+// @Tags /api/v1/organizations
 // @Accept json
 // @Produce json
 // @Param id path string true "Organization ID"
