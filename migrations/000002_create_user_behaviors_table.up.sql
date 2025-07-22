@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS user_behaviors (
     id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
     session_id VARCHAR(255) NOT NULL,
     timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
-    event_type VARCHAR(50) NOT NULL,
+                            event_type VARCHAR(50) NOT NULL,
     url TEXT NOT NULL,
     user_id VARCHAR(255),
     user_name VARCHAR(255),

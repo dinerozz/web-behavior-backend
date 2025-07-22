@@ -3,7 +3,6 @@ package user
 import (
 	"github.com/dinerozz/web-behavior-backend/internal/model/request"
 	"github.com/dinerozz/web-behavior-backend/internal/model/response/wrapper"
-	"github.com/dinerozz/web-behavior-backend/internal/service/organization"
 	"github.com/dinerozz/web-behavior-backend/internal/service/user"
 	"github.com/dinerozz/web-behavior-backend/pkg/utils"
 	"github.com/gin-gonic/gin"
@@ -13,15 +12,11 @@ import (
 )
 
 type UserHandler struct {
-	srv    *user.UserService
-	orgSrv *organization.OrganizationService
+	srv *user.UserService
 }
 
-func NewUserHandler(srv *user.UserService, orgSrv *organization.OrganizationService) *UserHandler {
-	return &UserHandler{
-		srv:    srv,
-		orgSrv: orgSrv,
-	}
+func NewUserHandler(srv *user.UserService) *UserHandler {
+	return &UserHandler{srv: srv}
 }
 
 // CreateOrAuthUserWithPassword godoc
@@ -128,49 +123,6 @@ func (h *UserHandler) GetUserById(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, wrapper.ResponseWrapper{Data: user, Success: true})
-}
-
-// GetUserWithOrganizations godoc
-// @Summary Get user profile with organizations
-// @Description Get user profile including their organizations
-// @Tags users
-// @Accept json
-// @Produce json
-// @Success 200 {object} wrapper.ResponseWrapper{data=map[string]interface{}}
-// @Failure 401 {object} wrapper.ErrorWrapper
-// @Failure 500 {object} wrapper.ErrorWrapper
-// @Router /users/profile/full [get]
-func (h *UserHandler) GetUserWithOrganizations(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, wrapper.ErrorWrapper{Message: "User ID not found", Success: false})
-		return
-	}
-
-	userUUID, err := uuid.FromString(userID.(string))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{Message: err.Error(), Success: false})
-		return
-	}
-
-	user, err := h.srv.GetUserById(userUUID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{Message: err.Error(), Success: false})
-		return
-	}
-
-	userOrganizations, err := h.orgSrv.GetUserOrganizations(userUUID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{Message: err.Error(), Success: false})
-		return
-	}
-
-	response := map[string]interface{}{
-		"user":          user,
-		"organizations": userOrganizations.Organizations,
-	}
-
-	c.JSON(http.StatusOK, wrapper.ResponseWrapper{Data: response, Success: true})
 }
 
 // Logout godoc
