@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/dinerozz/web-behavior-backend/internal/entity"
@@ -19,12 +18,6 @@ var ActiveEvents = []string{
 	"scrollend", "pagehide", "visibility_visible",
 }
 
-type queryBuilder struct {
-	args          []interface{}
-	argIndex      int
-	sessionFilter string
-}
-
 type engagedTimeResult struct {
 	ActiveMinutes       int            `db:"active_minutes"`
 	ActiveEventsCount   int            `db:"active_events_count"`
@@ -33,17 +26,29 @@ type engagedTimeResult struct {
 	SessionsCount       int            `db:"sessions_count"`
 	PeriodStart         time.Time      `db:"period_start"`
 	PeriodEnd           time.Time      `db:"period_end"`
-	TotalMinutes        float64        `db:"total_minutes"`
 	UniqueDomainsCount  int            `db:"unique_domains_count"`
 	DomainsList         pq.StringArray `db:"domains_list"`
 
-	DeepSessionsCount int             `db:"deep_sessions_count"`
-	TotalDeepMinutes  float64         `db:"total_deep_minutes"`
-	AvgDeepMinutes    float64         `db:"avg_deep_minutes"`
-	MaxDeepMinutes    float64         `db:"max_deep_minutes"`
-	TopDeepDomains    json.RawMessage `db:"top_deep_domains"`
+	DeepSessionsCount int     `db:"deep_sessions_count"`
+	TotalDeepMinutes  float64 `db:"total_deep_minutes"`
+	AvgDeepMinutes    float64 `db:"avg_deep_minutes"`
+	MaxDeepMinutes    float64 `db:"max_deep_minutes"`
+}
 
-	HourlyBreakdownData json.RawMessage `db:"hourly_breakdown_data"`
+type hourlyBreakdownResult struct {
+	Hour           int    `db:"hour"`
+	Date           string `db:"date"`
+	EngagedMinutes int    `db:"engaged_minutes"`
+	TotalMinutes   int    `db:"total_minutes"`
+	IdleMinutes    int    `db:"idle_minutes"`
+	ActiveEvents   int    `db:"active_events"`
+	SessionsCount  int    `db:"sessions_count"`
+}
+
+type deepWorkDomainResult struct {
+	Domain   string  `db:"domain"`
+	Minutes  float64 `db:"minutes"`
+	Sessions int     `db:"sessions"`
 }
 
 type deepWorkSessionsResult struct {
@@ -61,8 +66,7 @@ type deepWorkSessionsResult struct {
 	DeepWorkContextRatio float64         `db:"deep_work_context_ratio"`
 	SessionsData         json.RawMessage `db:"sessions_data"`
 	TotalTrackedMinutes  int             `db:"total_tracked_minutes"`
-
-	HourlyBreakdownData json.RawMessage `db:"hourly_breakdown_data"`
+	HourlyBreakdownData  json.RawMessage `db:"hourly_breakdown_data"`
 }
 
 type UserMetricsRepository interface {
@@ -81,18 +85,343 @@ func NewMetricsRepository(db *sqlx.DB) *metricsRepository {
 	return &metricsRepository{db: db}
 }
 
+// Основной оптимизированный запрос для получения базовых метрик
+const optimizedEngagedTimeQuery = `
+WITH minute_activity AS (
+    SELECT
+        DATE_TRUNC('minute', timestamp) AS minute,
+        MAX(CASE WHEN event_type = ANY($4::text[]) THEN 1 ELSE 0 END) AS is_active,
+        1 AS is_tracked,
+        COUNT(CASE WHEN event_type = ANY($4::text[]) THEN 1 END) AS active_events_in_minute,
+        COUNT(DISTINCT session_id) AS sessions_in_minute,
+        -- Извлекаем домен сразу здесь
+        CASE 
+            WHEN url ~ '^https?://' THEN 
+                split_part(split_part(url, '://', 2), '/', 1)
+            ELSE 
+                split_part(url, '/', 1)
+        END as domain
+    FROM user_behaviors 
+    WHERE user_id = $1 
+        AND timestamp >= $2 
+        AND timestamp <= $3 %s
+    GROUP BY DATE_TRUNC('minute', timestamp), 
+             CASE 
+                 WHEN url ~ '^https?://' THEN 
+                     split_part(split_part(url, '://', 2), '/', 1)
+                 ELSE 
+                     split_part(url, '/', 1)
+             END
+),
+base_stats AS (
+    SELECT 
+        COALESCE(SUM(is_active), 0) as active_minutes,
+        COALESCE(SUM(is_tracked), 0) as total_tracked_minutes,
+        COALESCE(SUM(CASE WHEN is_active = 0 THEN 1 ELSE 0 END), 0) as idle_minutes,
+        COALESCE(SUM(active_events_in_minute), 0) as active_events_count,
+        COALESCE(COUNT(DISTINCT CASE WHEN sessions_in_minute > 0 THEN minute END), 0) as sessions_count,
+        COALESCE(MIN(minute), $2::timestamp) as period_start,
+        COALESCE(MAX(minute), $3::timestamp) as period_end,
+        COALESCE(COUNT(DISTINCT domain) FILTER (WHERE domain IS NOT NULL AND domain != ''), 0) as unique_domains_count,
+        COALESCE(array_agg(DISTINCT domain) FILTER (WHERE domain IS NOT NULL AND domain != ''), ARRAY[]::text[]) as domains_list
+    FROM minute_activity
+),
+-- Упрощенная версия deep work без избыточных CTE
+simple_deep_work AS (
+    SELECT 
+        CASE 
+            WHEN url ~ '^https?://' THEN 
+                split_part(split_part(url, '://', 2), '/', 1)
+            ELSE 
+                split_part(url, '/', 1)
+        END as domain,
+        MIN(timestamp) as session_start,
+        MAX(timestamp) as session_end,
+        EXTRACT(EPOCH FROM (MAX(timestamp) - MIN(timestamp))) / 60.0 as duration_minutes,
+        COUNT(*) as events_count
+    FROM user_behaviors
+    WHERE user_id = $1 
+        AND timestamp >= $2 
+        AND timestamp <= $3 
+        AND event_type = ANY($4::text[]) %s
+    GROUP BY CASE 
+                 WHEN url ~ '^https?://' THEN 
+                     split_part(split_part(url, '://', 2), '/', 1)
+                 ELSE 
+                     split_part(url, '/', 1)
+             END, 
+             -- Группируем по сессиям с разрывом > 2 минут
+             floor(EXTRACT(EPOCH FROM timestamp) / 120)
+    HAVING COUNT(*) > 1 
+        AND EXTRACT(EPOCH FROM (MAX(timestamp) - MIN(timestamp))) >= 900 -- 15 минут
+),
+deep_work_stats AS (
+    SELECT 
+        COUNT(*) as deep_sessions_count,
+        COALESCE(SUM(duration_minutes), 0) as total_deep_minutes,
+        COALESCE(AVG(duration_minutes), 0) as avg_deep_minutes,
+        COALESCE(MAX(duration_minutes), 0) as max_deep_minutes
+    FROM simple_deep_work
+)
+SELECT 
+    bs.active_minutes,
+    bs.total_tracked_minutes,
+    bs.idle_minutes,
+    bs.active_events_count,
+    bs.sessions_count,
+    bs.period_start,
+    bs.period_end,
+    bs.unique_domains_count,
+    bs.domains_list,
+    COALESCE(dws.deep_sessions_count, 0) as deep_sessions_count,
+    COALESCE(dws.total_deep_minutes, 0) as total_deep_minutes,
+    COALESCE(dws.avg_deep_minutes, 0) as avg_deep_minutes,
+    COALESCE(dws.max_deep_minutes, 0) as max_deep_minutes
+FROM base_stats bs
+CROSS JOIN deep_work_stats dws`
+
+// Отдельный запрос для hourly breakdown (выполняется только при необходимости)
+const hourlyBreakdownQuery = `
+WITH hourly_minute_activity AS (
+    SELECT 
+        EXTRACT(HOUR FROM timestamp)::integer as hour,
+        DATE(timestamp)::text as date,
+        DATE_TRUNC('minute', timestamp) AS minute,
+        MAX(CASE WHEN event_type = ANY($4::text[]) THEN 1 ELSE 0 END) AS is_active,
+        COUNT(CASE WHEN event_type = ANY($4::text[]) THEN 1 END) AS active_events_in_minute,
+        COUNT(DISTINCT session_id) AS sessions_in_minute
+    FROM user_behaviors 
+    WHERE user_id = $1 
+        AND timestamp >= $2 
+        AND timestamp <= $3 %s
+    GROUP BY EXTRACT(HOUR FROM timestamp), DATE(timestamp), DATE_TRUNC('minute', timestamp)
+)
+SELECT 
+    hour,
+    date,
+    COALESCE(SUM(is_active), 0)::integer as engaged_minutes,
+    COALESCE(COUNT(*), 0)::integer as total_minutes,
+    COALESCE(SUM(CASE WHEN is_active = 0 THEN 1 ELSE 0 END), 0)::integer as idle_minutes,
+    COALESCE(SUM(active_events_in_minute), 0)::integer as active_events,
+    COALESCE(COUNT(DISTINCT CASE WHEN sessions_in_minute > 0 THEN minute END), 0)::integer as sessions_count
+FROM hourly_minute_activity 
+GROUP BY hour, date
+ORDER BY date, hour`
+
+// Отдельный запрос для top domains в deep work
+const deepWorkTopDomainsQuery = `
+WITH deep_work_domains AS (
+    SELECT 
+        CASE 
+            WHEN url ~ '^https?://' THEN 
+                split_part(split_part(url, '://', 2), '/', 1)
+            ELSE 
+                split_part(url, '/', 1)
+        END as domain,
+        MIN(timestamp) as session_start,
+        MAX(timestamp) as session_end,
+        EXTRACT(EPOCH FROM (MAX(timestamp) - MIN(timestamp))) / 60.0 as duration_minutes
+    FROM user_behaviors
+    WHERE user_id = $1 
+        AND timestamp >= $2 
+        AND timestamp <= $3 
+        AND event_type = ANY($4::text[]) %s
+    GROUP BY CASE 
+                 WHEN url ~ '^https?://' THEN 
+                     split_part(split_part(url, '://', 2), '/', 1)
+                 ELSE 
+                     split_part(url, '/', 1)
+             END, 
+             floor(EXTRACT(EPOCH FROM timestamp) / 120)
+    HAVING COUNT(*) > 1 
+        AND EXTRACT(EPOCH FROM (MAX(timestamp) - MIN(timestamp))) >= 900
+)
+SELECT 
+    domain,
+    SUM(duration_minutes) as minutes,
+    COUNT(*) as sessions
+FROM deep_work_domains
+WHERE domain IS NOT NULL AND domain != ''
+GROUP BY domain
+ORDER BY minutes DESC
+LIMIT 3`
+
+func (r *metricsRepository) GetEngagedTime(ctx context.Context, filter entity.EngagedTimeFilter) (*entity.EngagedTimeMetric, error) {
+	sessionFilter := ""
+	args := []interface{}{filter.UserID, filter.StartTime, filter.EndTime, pq.Array(ActiveEvents)}
+
+	if filter.SessionID != nil {
+		sessionFilter = " AND session_id = $5"
+		args = append(args, *filter.SessionID)
+	}
+
+	// 1. Основной запрос для базовых метрик
+	mainQuery := fmt.Sprintf(optimizedEngagedTimeQuery, sessionFilter, sessionFilter)
+
+	var result engagedTimeResult
+	err := r.db.GetContext(ctx, &result, mainQuery, args...)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// Возвращаем пустые метрики если данных нет
+			return r.buildEmptyEngagedTimeMetric(filter), nil
+		}
+		return nil, fmt.Errorf("failed to get engaged time base stats: %w", err)
+	}
+
+	// 2. Получаем hourly breakdown отдельным запросом
+	hourlyQuery := fmt.Sprintf(hourlyBreakdownQuery, sessionFilter)
+	var hourlyResults []hourlyBreakdownResult
+	err = r.db.SelectContext(ctx, &hourlyResults, hourlyQuery, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get hourly breakdown: %w", err)
+	}
+
+	// 3. Получаем top domains для deep work отдельным запросом
+	var topDomains []deepWorkDomainResult
+	if result.DeepSessionsCount > 0 {
+		domainsQuery := fmt.Sprintf(deepWorkTopDomainsQuery, sessionFilter)
+		err = r.db.SelectContext(ctx, &topDomains, domainsQuery, args...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get deep work top domains: %w", err)
+		}
+	}
+
+	return r.buildOptimizedEngagedTimeMetric(filter, result, hourlyResults, topDomains), nil
+}
+
+func (r *metricsRepository) buildEmptyEngagedTimeMetric(filter entity.EngagedTimeFilter) *entity.EngagedTimeMetric {
+	return &entity.EngagedTimeMetric{
+		UserID:             filter.UserID,
+		ActiveMinutes:      0,
+		ActiveHours:        0,
+		ActiveEvents:       0,
+		Sessions:           0,
+		TrackedMinutes:     0,
+		TrackedHours:       0,
+		EngagementRate:     0,
+		StartTime:          filter.StartTime,
+		EndTime:            filter.EndTime,
+		Period:             utils.FormatPeriod(filter.StartTime, filter.EndTime),
+		UniqueDomainsCount: 0,
+		DomainsList:        []string{},
+		DeepWork: entity.DeepWorkData{
+			SessionsCount:  0,
+			TotalMinutes:   0,
+			TotalHours:     0,
+			AverageMinutes: 0,
+			LongestMinutes: 0,
+			DeepWorkRate:   0,
+			TopDomains:     []entity.DeepWorkDomain{},
+		},
+		HourlyBreakdown: []entity.HourlyData{},
+	}
+}
+
+func (r *metricsRepository) buildOptimizedEngagedTimeMetric(
+	filter entity.EngagedTimeFilter,
+	result engagedTimeResult,
+	hourlyResults []hourlyBreakdownResult,
+	topDomainsResults []deepWorkDomainResult,
+) *entity.EngagedTimeMetric {
+
+	// Рассчитываем engagement rate
+	engagementRate := calculateEngagementRate(result.ActiveMinutes, result.TotalTrackedMinutes)
+
+	// Конвертируем hourly breakdown
+	hourlyBreakdown := make([]entity.HourlyData, len(hourlyResults))
+	for i, hourly := range hourlyResults {
+		totalMins := hourly.TotalMinutes
+		idleMins := hourly.IdleMinutes
+
+		// Проверяем консистентность данных
+		if totalMins != (hourly.EngagedMinutes + idleMins) {
+			idleMins = totalMins - hourly.EngagedMinutes
+			if idleMins < 0 {
+				idleMins = 0
+				totalMins = hourly.EngagedMinutes
+			}
+		}
+
+		var productivity float64
+		if totalMins > 0 {
+			productivity = utils.RoundToTwoDecimals((float64(hourly.EngagedMinutes) / float64(totalMins)) * 100)
+		}
+
+		hourlyBreakdown[i] = entity.HourlyData{
+			Hour:         hourly.Hour,
+			Date:         hourly.Date,
+			Timestamp:    utils.FormatHourTimestamp(hourly.Hour),
+			EngagedMins:  hourly.EngagedMinutes,
+			IdleMins:     idleMins,
+			TotalMins:    totalMins,
+			Events:       hourly.ActiveEvents,
+			Sessions:     hourly.SessionsCount,
+			Productivity: productivity,
+		}
+	}
+
+	// Конвертируем top domains для deep work
+	topDomains := make([]entity.DeepWorkDomain, len(topDomainsResults))
+	for i, domain := range topDomainsResults {
+		topDomains[i] = entity.DeepWorkDomain{
+			Domain:   domain.Domain,
+			Minutes:  utils.RoundToTwoDecimals(domain.Minutes),
+			Sessions: domain.Sessions,
+		}
+	}
+
+	// Рассчитываем deep work rate
+	var deepWorkRate float64
+	if result.TotalTrackedMinutes > 0 {
+		deepWorkRate = utils.RoundToTwoDecimals((result.TotalDeepMinutes / float64(result.TotalTrackedMinutes)) * 100)
+	}
+
+	return &entity.EngagedTimeMetric{
+		UserID:             filter.UserID,
+		ActiveMinutes:      result.ActiveMinutes,
+		ActiveHours:        utils.RoundToTwoDecimals(float64(result.ActiveMinutes) / 60),
+		ActiveEvents:       result.ActiveEventsCount,
+		Sessions:           result.SessionsCount,
+		TrackedMinutes:     utils.RoundToTwoDecimals(float64(result.TotalTrackedMinutes)),
+		TrackedHours:       utils.RoundToTwoDecimals(float64(result.TotalTrackedMinutes) / 60),
+		EngagementRate:     engagementRate,
+		StartTime:          filter.StartTime,
+		EndTime:            filter.EndTime,
+		Period:             utils.FormatPeriod(filter.StartTime, filter.EndTime),
+		UniqueDomainsCount: result.UniqueDomainsCount,
+		DomainsList:        result.DomainsList,
+		DeepWork: entity.DeepWorkData{
+			SessionsCount:  result.DeepSessionsCount,
+			TotalMinutes:   utils.RoundToTwoDecimals(result.TotalDeepMinutes),
+			TotalHours:     utils.RoundToTwoDecimals(result.TotalDeepMinutes / 60),
+			AverageMinutes: utils.RoundToTwoDecimals(result.AvgDeepMinutes),
+			LongestMinutes: utils.RoundToTwoDecimals(result.MaxDeepMinutes),
+			DeepWorkRate:   deepWorkRate,
+			TopDomains:     topDomains,
+		},
+		HourlyBreakdown: hourlyBreakdown,
+	}
+}
+
+func calculateEngagementRate(activeMinutes int, totalTrackedMinutes int) float64 {
+	if totalTrackedMinutes <= 0 {
+		return 0
+	}
+	return utils.RoundToTwoDecimals((float64(activeMinutes) / float64(totalTrackedMinutes)) * 100)
+}
+
 func (r *metricsRepository) GetTrackedTime(ctx context.Context, filter entity.TrackedTimeFilter) (*entity.TrackedTimeMetric, error) {
 	query := `
-			SELECT 
-				user_id,
-				session_id,
-				MIN(timestamp) as session_start,
-				MAX(timestamp) as session_end,
-				EXTRACT(EPOCH FROM (MAX(timestamp) - MIN(timestamp))) / 60 as duration_minutes
-			FROM user_behaviors 
-			WHERE user_id = $1 
-				AND timestamp >= $2 
-				AND timestamp <= $3`
+		SELECT 
+			user_id,
+			session_id,
+			MIN(timestamp) as session_start,
+			MAX(timestamp) as session_end,
+			EXTRACT(EPOCH FROM (MAX(timestamp) - MIN(timestamp))) / 60 as duration_minutes
+		FROM user_behaviors 
+		WHERE user_id = $1 
+			AND timestamp >= $2 
+			AND timestamp <= $3`
 
 	args := []interface{}{filter.UserID, filter.StartTime, filter.EndTime}
 	argIndex := 4
@@ -216,502 +545,6 @@ func (r *metricsRepository) GetTrackedTimeTotal(ctx context.Context, filter enti
 		EndTime:      res.ActualEnd,
 		Period:       utils.FormatPeriod(res.ActualStart, res.ActualEnd),
 	}, nil
-}
-
-func newQueryBuilder(filter entity.EngagedTimeFilter) *queryBuilder {
-	qb := &queryBuilder{
-		args:     []interface{}{filter.UserID, filter.StartTime, filter.EndTime},
-		argIndex: 4,
-	}
-
-	if filter.SessionID != nil {
-		qb.sessionFilter = fmt.Sprintf(" AND session_id = $%d", qb.argIndex)
-		qb.args = append(qb.args, *filter.SessionID)
-		qb.argIndex++
-	}
-
-	return qb
-}
-
-func (qb *queryBuilder) addActiveEventsPlaceholders() string {
-	placeholders := make([]string, len(ActiveEvents))
-	for i, event := range ActiveEvents {
-		placeholders[i] = fmt.Sprintf("$%d", qb.argIndex)
-		qb.args = append(qb.args, event)
-		qb.argIndex++
-	}
-	return strings.Join(placeholders, ",")
-}
-
-func (qb *queryBuilder) buildQueryWithDeepWorkAndHourly() string {
-	eventPlaceholders := qb.addActiveEventsPlaceholders()
-	activeDataEventPlaceholders1 := qb.addActiveEventsPlaceholders()
-	//activeDataEventPlaceholders2 := qb.addActiveEventsPlaceholders()
-	hourlyEventPlaceholders1 := qb.addActiveEventsPlaceholders()
-	hourlyEventPlaceholders2 := qb.addActiveEventsPlaceholders()
-
-	return fmt.Sprintf(`
-    %s,
-    %s,
-    %s,
-    %s,
-    %s
-    SELECT 
-        COALESCE(ad.active_minutes, 0) as active_minutes,
-        COALESCE(ad.total_tracked_minutes, 0) as total_tracked_minutes,
-        COALESCE(ad.idle_minutes, 0) as idle_minutes,
-        COALESCE(ad.active_events_count, 0) as active_events_count,
-        COALESCE(ad.sessions_count, 0) as sessions_count,
-        COALESCE(tb.actual_start, $2::timestamp) as period_start,
-        COALESCE(tb.actual_end, $3::timestamp) as period_end,
-        0 as total_minutes, -- deprecated field
-        COALESCE(dd.unique_domains_count, 0) as unique_domains_count,
-        COALESCE(dd.domains_list, ARRAY[]::text[]) as domains_list,
-        
-        -- Deep Work данные
-        (SELECT COALESCE(COUNT(*), 0) FROM deep_work_sessions) as deep_sessions_count,
-        (SELECT COALESCE(SUM(duration_minutes), 0) FROM deep_work_sessions) as total_deep_minutes,
-        (SELECT COALESCE(AVG(duration_minutes), 0) FROM deep_work_sessions) as avg_deep_minutes,
-        (SELECT COALESCE(MAX(duration_minutes), 0) FROM deep_work_sessions) as max_deep_minutes,
-        
-        -- Top domains для deep work
-        (SELECT COALESCE(
-            json_agg(
-                json_build_object(
-                    'domain', domain,
-                    'minutes', domain_minutes,
-                    'sessions', domain_sessions
-                ) ORDER BY domain_minutes DESC
-            ),
-            '[]'::json
-        ) FROM (
-            SELECT 
-                domain,
-                SUM(duration_minutes) as domain_minutes,
-                COUNT(*) as domain_sessions
-            FROM deep_work_sessions
-            GROUP BY domain
-            ORDER BY domain_minutes DESC
-            LIMIT 3
-        ) top_domains_subquery) as top_deep_domains,
-        
-        -- Hourly breakdown
-        (SELECT COALESCE(
-            json_agg(
-                json_build_object(
-                    'hour', hour,
-                    'date', date,
-                    'engaged_minutes', engaged_minutes,
-                    'total_minutes', total_minutes,
-                    'idle_minutes', idle_minutes,
-                    'active_events', active_events,
-                    'sessions_count', sessions_count
-                ) ORDER BY date, hour
-            ),
-            '[]'::json
-        ) FROM hourly_stats) as hourly_breakdown_data
-        
-    FROM time_bounds tb
-    FULL OUTER JOIN active_data ad ON true
-    FULL OUTER JOIN domains_data dd ON true`,
-
-		fmt.Sprintf(timeBoundsQuery, qb.sessionFilter),
-		fmt.Sprintf(activeDataQuery, eventPlaceholders, qb.sessionFilter, activeDataEventPlaceholders1, qb.sessionFilter, qb.sessionFilter),
-		fmt.Sprintf(domainsDataQuery, qb.sessionFilter),
-		fmt.Sprintf(deepWorkQuery, eventPlaceholders, qb.sessionFilter),
-		fmt.Sprintf(hourlyBreakdownQuery, hourlyEventPlaceholders1, qb.sessionFilter, hourlyEventPlaceholders2))
-}
-
-func (qb *queryBuilder) buildQueryWithDeepWork() string {
-	eventPlaceholders := qb.addActiveEventsPlaceholders()
-	activeDataEventPlaceholders1 := qb.addActiveEventsPlaceholders()
-	//activeDataEventPlaceholders2 := qb.addActiveEventsPlaceholders()
-
-	return fmt.Sprintf(`
-    %s,
-    %s,
-    %s,
-    %s
-    SELECT 
-        COALESCE(ad.active_minutes, 0) as active_minutes,
-        COALESCE(ad.total_tracked_minutes, 0) as total_tracked_minutes,
-        COALESCE(ad.idle_minutes, 0) as idle_minutes,
-        COALESCE(ad.active_events_count, 0) as active_events_count,
-        COALESCE(ad.sessions_count, 0) as sessions_count,
-        COALESCE(tb.actual_start, $2::timestamp) as period_start,
-        COALESCE(tb.actual_end, $3::timestamp) as period_end,
-        0 as total_minutes, -- deprecated field
-        COALESCE(dd.unique_domains_count, 0) as unique_domains_count,
-        COALESCE(dd.domains_list, ARRAY[]::text[]) as domains_list,
-        
-        -- Deep Work данные
-        COALESCE(dws.deep_sessions_count, 0) as deep_sessions_count,
-        COALESCE(dws.total_deep_minutes, 0) as total_deep_minutes,
-        COALESCE(dws.avg_deep_minutes, 0) as avg_deep_minutes,
-        COALESCE(dws.max_deep_minutes, 0) as max_deep_minutes,
-        
-        -- Top domains для deep work (JSON)
-        COALESCE(
-            json_agg(
-                json_build_object(
-                    'domain', dwd.domain,
-                    'minutes', dwd.domain_minutes,
-                    'sessions', dwd.domain_sessions
-                ) ORDER BY dwd.domain_minutes DESC
-            ) FILTER (WHERE dwd.domain IS NOT NULL),
-            '[]'::json
-        ) as top_deep_domains
-        
-    FROM time_bounds tb
-    FULL OUTER JOIN active_data ad ON true
-    FULL OUTER JOIN domains_data dd ON true
-    FULL OUTER JOIN deep_work_stats dws ON true
-    LEFT JOIN deep_work_domains dwd ON true
-    GROUP BY tb.actual_start, tb.actual_end, 
-             ad.active_minutes, ad.total_tracked_minutes, ad.idle_minutes, 
-             ad.active_events_count, ad.sessions_count,
-             dd.unique_domains_count, dd.domains_list,
-             dws.deep_sessions_count, dws.total_deep_minutes, dws.avg_deep_minutes, dws.max_deep_minutes`,
-
-		fmt.Sprintf(timeBoundsQuery, qb.sessionFilter),
-		fmt.Sprintf(activeDataQuery, eventPlaceholders, qb.sessionFilter, activeDataEventPlaceholders1, qb.sessionFilter, qb.sessionFilter),
-		fmt.Sprintf(domainsDataQuery, qb.sessionFilter),
-		fmt.Sprintf(deepWorkQuery, eventPlaceholders, qb.sessionFilter))
-}
-
-func calculateEngagementRate(activeMinutes int, totalTrackedMinutes int) float64 {
-	if totalTrackedMinutes <= 0 {
-		return 0
-	}
-	return utils.RoundToTwoDecimals((float64(activeMinutes) / float64(totalTrackedMinutes)) * 100)
-}
-
-func (r *metricsRepository) buildEngagedTimeMetric(filter entity.EngagedTimeFilter, result engagedTimeResult) *entity.EngagedTimeMetric {
-	engagementRate := calculateEngagementRate(result.ActiveMinutes, result.TotalTrackedMinutes)
-
-	var topDomains []entity.DeepWorkDomain
-	if len(result.TopDeepDomains) > 0 && string(result.TopDeepDomains) != "[]" {
-		if err := json.Unmarshal(result.TopDeepDomains, &topDomains); err != nil {
-			topDomains = []entity.DeepWorkDomain{}
-		}
-	}
-
-	var hourlyBreakdown []entity.HourlyData
-	if len(result.HourlyBreakdownData) > 0 && string(result.HourlyBreakdownData) != "[]" {
-		type hourlyRaw struct {
-			Hour           int    `json:"hour"`
-			Date           string `json:"date"`
-			EngagedMinutes int    `json:"engaged_minutes"`
-			TotalMinutes   int    `json:"total_minutes"`
-			IdleMinutes    int    `json:"idle_minutes"`
-			ActiveEvents   int    `json:"active_events"`
-			SessionsCount  int    `json:"sessions_count"`
-		}
-
-		var rawData []hourlyRaw
-		if err := json.Unmarshal(result.HourlyBreakdownData, &rawData); err == nil {
-			hourlyBreakdown = make([]entity.HourlyData, len(rawData))
-			for i, raw := range rawData {
-				totalMins := raw.TotalMinutes
-				idleMins := raw.IdleMinutes
-
-				if totalMins != (raw.EngagedMinutes + idleMins) {
-					idleMins = totalMins - raw.EngagedMinutes
-					if idleMins < 0 {
-						idleMins = 0
-						totalMins = raw.EngagedMinutes
-					}
-				}
-
-				var productivity float64
-				if totalMins > 0 {
-					productivity = utils.RoundToTwoDecimals((float64(raw.EngagedMinutes) / float64(totalMins)) * 100)
-				}
-
-				hourlyBreakdown[i] = entity.HourlyData{
-					Hour:         raw.Hour,
-					Date:         raw.Date,
-					Timestamp:    utils.FormatHourTimestamp(raw.Hour),
-					EngagedMins:  raw.EngagedMinutes,
-					IdleMins:     idleMins,
-					TotalMins:    totalMins,
-					Events:       raw.ActiveEvents,
-					Sessions:     raw.SessionsCount,
-					Productivity: productivity,
-				}
-			}
-		}
-	}
-
-	var deepWorkRate float64
-	if result.TotalTrackedMinutes > 0 {
-		deepWorkRate = utils.RoundToTwoDecimals((result.TotalDeepMinutes / float64(result.TotalTrackedMinutes)) * 100)
-	}
-
-	return &entity.EngagedTimeMetric{
-		UserID:             filter.UserID,
-		ActiveMinutes:      result.ActiveMinutes,
-		ActiveHours:        utils.RoundToTwoDecimals(float64(result.ActiveMinutes) / 60),
-		ActiveEvents:       result.ActiveEventsCount,
-		Sessions:           result.SessionsCount,
-		TrackedMinutes:     utils.RoundToTwoDecimals(float64(result.TotalTrackedMinutes)),
-		TrackedHours:       utils.RoundToTwoDecimals(float64(result.TotalTrackedMinutes) / 60),
-		EngagementRate:     engagementRate,
-		StartTime:          filter.StartTime,
-		EndTime:            filter.EndTime,
-		Period:             utils.FormatPeriod(filter.StartTime, filter.EndTime),
-		UniqueDomainsCount: result.UniqueDomainsCount,
-		DomainsList:        result.DomainsList,
-		DeepWork: entity.DeepWorkData{
-			SessionsCount:  result.DeepSessionsCount,
-			TotalMinutes:   utils.RoundToTwoDecimals(result.TotalDeepMinutes),
-			TotalHours:     utils.RoundToTwoDecimals(result.TotalDeepMinutes / 60),
-			AverageMinutes: utils.RoundToTwoDecimals(result.AvgDeepMinutes),
-			LongestMinutes: utils.RoundToTwoDecimals(result.MaxDeepMinutes),
-			DeepWorkRate:   deepWorkRate,
-			TopDomains:     topDomains,
-		},
-		HourlyBreakdown: hourlyBreakdown,
-	}
-}
-
-const (
-	timeBoundsQuery = `
-    WITH time_bounds AS (
-        SELECT 
-            MIN(timestamp) as actual_start,
-            MAX(timestamp) as actual_end
-        FROM user_behaviors 
-        WHERE user_id = $1 
-            AND timestamp >= $2 
-            AND timestamp <= $3 %s
-    )`
-
-	activeDataQuery = `
-    minute_activity AS (
-        SELECT
-            DATE_TRUNC('minute', ub.timestamp) AS minute,
-            MAX(CASE WHEN ub.event_type IN (%s) THEN 1 ELSE 0 END) AS is_active,
-            1 AS is_tracked
-        FROM user_behaviors ub
-        CROSS JOIN time_bounds tb
-        WHERE ub.user_id = $1 
-            AND ub.timestamp >= tb.actual_start 
-            AND ub.timestamp <= tb.actual_end %s
-        GROUP BY DATE_TRUNC('minute', ub.timestamp)
-    ),
-    active_data AS (
-        SELECT 
-            SUM(is_active) as active_minutes,
-            SUM(is_tracked) as total_tracked_minutes,
-            SUM(CASE WHEN is_active = 0 THEN 1 ELSE 0 END) as idle_minutes,
-            (SELECT COUNT(*) FROM user_behaviors ub2 
-             CROSS JOIN time_bounds tb2
-             WHERE ub2.user_id = $1 
-               AND ub2.timestamp >= tb2.actual_start 
-               AND ub2.timestamp <= tb2.actual_end
-               AND ub2.event_type IN (%s) %s) as active_events_count,
-            (SELECT COUNT(DISTINCT session_id) FROM user_behaviors ub3
-             CROSS JOIN time_bounds tb3
-             WHERE ub3.user_id = $1 
-               AND ub3.timestamp >= tb3.actual_start 
-               AND ub3.timestamp <= tb3.actual_end %s) as sessions_count
-        FROM minute_activity
-    )`
-
-	domainsDataQuery = `
-    domains_data AS (
-        SELECT 
-            COUNT(DISTINCT 
-                CASE 
-                    WHEN url ~ '^https?://' THEN 
-                        split_part(split_part(url, '://', 2), '/', 1)
-                    ELSE 
-                        split_part(url, '/', 1)
-                END
-            ) as unique_domains_count,
-            array_agg(DISTINCT 
-                CASE 
-                    WHEN url ~ '^https?://' THEN 
-                        split_part(split_part(url, '://', 2), '/', 1)
-                    ELSE 
-                        split_part(url, '/', 1)
-                END
-            ) FILTER (WHERE url IS NOT NULL AND url != '') as domains_list
-        FROM user_behaviors ub
-        CROSS JOIN time_bounds tb
-        WHERE ub.user_id = $1 
-            AND ub.timestamp >= tb.actual_start 
-            AND ub.timestamp <= tb.actual_end %s
-    )`
-
-	deepWorkQuery = `
-    domain_events AS (
-        SELECT 
-            ub.timestamp,
-            CASE 
-                WHEN ub.url ~ '^https?://' THEN 
-                    split_part(split_part(ub.url, '://', 2), '/', 1)
-                ELSE 
-                    split_part(ub.url, '/', 1)
-            END as domain,
-            LAG(ub.timestamp) OVER (
-                PARTITION BY CASE 
-                    WHEN ub.url ~ '^https?://' THEN 
-                        split_part(split_part(ub.url, '://', 2), '/', 1)
-                    ELSE 
-                        split_part(ub.url, '/', 1)
-                END 
-                ORDER BY ub.timestamp
-            ) as prev_timestamp
-        FROM user_behaviors ub
-        CROSS JOIN time_bounds tb
-        WHERE ub.user_id = $1 
-            AND ub.timestamp >= tb.actual_start 
-            AND ub.timestamp <= tb.actual_end
-            AND ub.event_type IN (%s) %s
-    ),
-    session_breaks AS (
-        SELECT 
-            timestamp,
-            domain,
-            CASE 
-                WHEN prev_timestamp IS NULL 
-                    OR EXTRACT(EPOCH FROM (timestamp - prev_timestamp)) > 120 
-                THEN 1 
-                ELSE 0 
-            END as is_new_session
-        FROM domain_events
-    ),
-    session_groups AS (
-        SELECT 
-            domain,
-            timestamp,
-            SUM(is_new_session) OVER (
-                PARTITION BY domain 
-                ORDER BY timestamp 
-                ROWS UNBOUNDED PRECEDING
-            ) as session_group
-        FROM session_breaks
-    ),
-    domain_sessions AS (
-        SELECT 
-            domain,
-            session_group,
-            MIN(timestamp) as session_start,
-            MAX(timestamp) as session_end,
-            EXTRACT(EPOCH FROM (MAX(timestamp) - MIN(timestamp))) / 60.0 as duration_minutes,
-            COUNT(*) as events_count
-        FROM session_groups
-        GROUP BY domain, session_group
-        HAVING COUNT(*) > 1
-    ),
-    deep_work_sessions AS (
-        SELECT 
-            domain,
-            session_start,
-            session_end,
-            duration_minutes,
-            events_count
-        FROM domain_sessions
-        WHERE duration_minutes >= 15
-    ),
-    deep_work_stats AS (
-        SELECT 
-            COUNT(*) as deep_sessions_count,
-            COALESCE(SUM(duration_minutes), 0) as total_deep_minutes,
-            COALESCE(AVG(duration_minutes), 0) as avg_deep_minutes,
-            COALESCE(MAX(duration_minutes), 0) as max_deep_minutes
-        FROM deep_work_sessions
-    ),
-    deep_work_domains AS (
-        SELECT 
-            domain,
-            SUM(duration_minutes) as domain_minutes,
-            COUNT(*) as domain_sessions
-        FROM deep_work_sessions
-        GROUP BY domain
-        ORDER BY domain_minutes DESC
-        LIMIT 3
-    )`
-
-	hourlyBreakdownQuery = `
-    hourly_minute_activity AS (
-        SELECT 
-            EXTRACT(HOUR FROM ub.timestamp) as hour,
-            DATE(ub.timestamp) as date,
-            DATE_TRUNC('minute', ub.timestamp) AS minute,
-            MAX(CASE WHEN ub.event_type IN (%s) THEN 1 ELSE 0 END) AS is_active,
-            ub.session_id
-        FROM user_behaviors ub
-        CROSS JOIN time_bounds tb
-        WHERE ub.user_id = $1 
-            AND ub.timestamp >= tb.actual_start 
-            AND ub.timestamp <= tb.actual_end %s
-        GROUP BY EXTRACT(HOUR FROM ub.timestamp), DATE(ub.timestamp), 
-                 DATE_TRUNC('minute', ub.timestamp), ub.session_id
-    ),
-    hourly_stats AS (
-        SELECT 
-            hour,
-            date,
-            SUM(is_active) as engaged_minutes,
-            COUNT(*) as total_minutes,
-            SUM(CASE WHEN is_active = 0 THEN 1 ELSE 0 END) as idle_minutes,
-            (SELECT COUNT(*) FROM user_behaviors ub4
-             CROSS JOIN time_bounds tb4
-             WHERE ub4.user_id = $1 
-               AND EXTRACT(HOUR FROM ub4.timestamp) = hma.hour
-               AND DATE(ub4.timestamp) = hma.date
-               AND ub4.timestamp >= tb4.actual_start 
-               AND ub4.timestamp <= tb4.actual_end
-               AND ub4.event_type IN (%s)) as active_events,
-            COUNT(DISTINCT session_id) as sessions_count
-        FROM hourly_minute_activity hma
-        GROUP BY hour, date
-        ORDER BY date, hour
-    )`
-)
-
-func (r *metricsRepository) GetEngagedTime(ctx context.Context, filter entity.EngagedTimeFilter) (*entity.EngagedTimeMetric, error) {
-	qb := newQueryBuilder(filter)
-	query := qb.buildQueryWithDeepWorkAndHourly()
-
-	var result engagedTimeResult
-	err := r.db.GetContext(ctx, &result, query, qb.args...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get engaged time: %w", err)
-	}
-
-	return r.buildEngagedTimeMetric(filter, result), nil
-}
-
-// determineFocusLevel определяет уровень фокуса на основе количества доменов
-func (r *metricsRepository) determineFocusLevel(domainsCount int) string {
-	switch {
-	case domainsCount <= 5:
-		return "high" // Высокая концентрация
-	case domainsCount <= 15:
-		return "medium" // Сбалансированная многозадачность
-	default:
-		return "low" // Высокая многозадачность/расфокус
-	}
-}
-
-func (r *metricsRepository) generateFocusInsight(domainsCount int, domains []string) string {
-	switch {
-	case domainsCount <= 5:
-		return fmt.Sprintf("Пользователь работал в ограниченном числе сайтов (%d доменов), что свидетельствует о высокой концентрации и глубокой работе в рамках одного контекста.", domainsCount)
-
-	case domainsCount <= 15:
-		return fmt.Sprintf("За сессию пользователь посетил %d уникальных сайтов. Сбалансированная многозадачность без явных признаков расфокуса.", domainsCount)
-
-	case domainsCount <= 25:
-		return fmt.Sprintf("За период зафиксировано %d уникальных сайтов. Повышенная контекстная нагрузка - возможно, сотрудник работает в режиме постоянных переключений, что может снижать продуктивность.", domainsCount)
-
-	default:
-		return fmt.Sprintf("Зафиксировано %d уникальных сайтов - очень высокий уровень переключений между контекстами. Рекомендуется проверить фокус задач и возможную декомпозицию работы.", domainsCount)
-	}
 }
 
 func (r *metricsRepository) GetTopDomains(ctx context.Context, filter entity.TopDomainsFilter) (*entity.TopDomainsResponse, error) {
