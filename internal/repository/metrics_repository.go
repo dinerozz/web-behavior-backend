@@ -318,26 +318,47 @@ func buildDeepWorkSessionsQuery(sessionFilter string) string {
 	)
 
 	return fmt.Sprintf(`%s,
-	-- Hourly статистика
+	-- Hourly статистика (ИСПРАВЛЕНО)
 	hourly_stats AS (
 		SELECT 
-			EXTRACT(HOUR FROM dwb.start_time)::integer as hour,
-			DATE(dwb.start_time)::text as date,
-			-- Высчитываем минуты deep work в каждом часе
-			SUM(
-				CASE 
-					WHEN dwb.end_time <= DATE_TRUNC('hour', dwb.start_time) + INTERVAL '1 hour' 
-					THEN dwb.duration_minutes
-					ELSE EXTRACT(EPOCH FROM (
-						DATE_TRUNC('hour', dwb.start_time) + INTERVAL '1 hour' - dwb.start_time
-					)) / 60.0
-				END
-			) as deep_work_minutes,
+			EXTRACT(HOUR FROM hour_start)::integer as hour,
+			DATE(hour_start)::text as date,
+			SUM(hour_duration) as deep_work_minutes,
 			COUNT(DISTINCT dwb.block_id) as sessions_count,
-			SUM(dwb.context_switches) as context_switches,
+			SUM(dwb.context_switches * (hour_duration / dwb.duration_minutes)) as context_switches,
 			AVG(dwb.switches_per_hour) as avg_switches_per_hour
 		FROM deep_work_blocks dwb
-		GROUP BY EXTRACT(HOUR FROM dwb.start_time), DATE(dwb.start_time)
+		CROSS JOIN LATERAL (
+			SELECT 
+				generate_series(
+					DATE_TRUNC('hour', dwb.start_time),
+					DATE_TRUNC('hour', dwb.end_time),
+					'1 hour'::interval
+				) as hour_start
+		) hours
+		CROSS JOIN LATERAL (
+			SELECT 
+				CASE 
+					-- Полный час внутри сессии
+					WHEN hour_start >= DATE_TRUNC('hour', dwb.start_time) 
+						AND hour_start + INTERVAL '1 hour' <= dwb.end_time 
+					THEN 60.0
+					-- Частичный час в начале
+					WHEN hour_start = DATE_TRUNC('hour', dwb.start_time) 
+						AND hour_start + INTERVAL '1 hour' > dwb.end_time
+					THEN EXTRACT(EPOCH FROM (dwb.end_time - dwb.start_time)) / 60.0
+					-- Частичный час в начале (но сессия продолжается)
+					WHEN hour_start = DATE_TRUNC('hour', dwb.start_time)
+					THEN EXTRACT(EPOCH FROM (hour_start + INTERVAL '1 hour' - dwb.start_time)) / 60.0
+					-- Частичный час в конце
+					WHEN hour_start + INTERVAL '1 hour' > dwb.end_time
+					THEN EXTRACT(EPOCH FROM (dwb.end_time - hour_start)) / 60.0
+					-- Полный час
+					ELSE 60.0
+				END as hour_duration
+		) duration_calc
+		WHERE hour_duration > 0
+		GROUP BY EXTRACT(HOUR FROM hour_start), DATE(hour_start)
 	),
 	-- Общая статистика по всем минутам для расчета процента
 	total_tracked AS (
