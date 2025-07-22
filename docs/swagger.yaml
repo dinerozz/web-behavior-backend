@@ -61,8 +61,6 @@ definitions:
         type: string
       userId:
         type: string
-      userName:
-        type: string
       x:
         type: integer
       "y":
@@ -386,6 +384,32 @@ definitions:
       user_id:
         type: string
     type: object
+  request.AddUserToOrganization:
+    properties:
+      role:
+        enum:
+        - admin
+        - member
+        - viewer
+        type: string
+      user_id:
+        type: string
+    required:
+    - role
+    - user_id
+    type: object
+  request.CreateOrganization:
+    properties:
+      description:
+        maxLength: 255
+        type: string
+      name:
+        maxLength: 255
+        minLength: 1
+        type: string
+    required:
+    - name
+    type: object
   request.CreateUserWithPassword:
     properties:
       password:
@@ -396,6 +420,59 @@ definitions:
     - password
     - username
     type: object
+  request.UpdateOrganization:
+    properties:
+      description:
+        maxLength: 255
+        type: string
+      name:
+        maxLength: 255
+        minLength: 1
+        type: string
+    required:
+    - name
+    type: object
+  response.Organization:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  response.OrganizationMember:
+    properties:
+      joined_at:
+        type: string
+      role:
+        type: string
+      user_id:
+        type: string
+      username:
+        type: string
+    type: object
+  response.OrganizationWithMembers:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      members:
+        items:
+          $ref: '#/definitions/response.OrganizationMember'
+        type: array
+      name:
+        type: string
+      updated_at:
+        type: string
+    type: object
   response.User:
     properties:
       created_at:
@@ -405,6 +482,28 @@ definitions:
       password:
         type: string
       username:
+        type: string
+    type: object
+  response.UserOrgAccess:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      joined_at:
+        type: string
+      name:
+        type: string
+      role:
+        type: string
+    type: object
+  response.UserOrganizations:
+    properties:
+      organizations:
+        items:
+          $ref: '#/definitions/response.UserOrgAccess'
+        type: array
+      user_id:
         type: string
     type: object
   wrapper.ErrorWrapper:
@@ -1278,6 +1377,405 @@ paths:
       summary: Get extension users statistics
       tags:
       - /api/v1/admin/extension
+  /organizations:
+    post:
+      consumes:
+      - application/json
+      description: Create a new organization with the authenticated user as admin
+      parameters:
+      - description: Organization object
+        in: body
+        name: organization
+        required: true
+        schema:
+          $ref: '#/definitions/request.CreateOrganization'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.Organization'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Create new organization
+      tags:
+      - /api/v1/organizations
+  /organizations/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete organization (admin only)
+      parameters:
+      - description: Organization ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/wrapper.SuccessWrapper'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Delete organization
+      tags:
+      - /api/v1/organizations
+    get:
+      consumes:
+      - application/json
+      description: Get organization details by ID (user must have access)
+      parameters:
+      - description: Organization ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.Organization'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get organization by ID
+      tags:
+      - /api/v1/organizations
+    put:
+      consumes:
+      - application/json
+      description: Update organization details (admin only)
+      parameters:
+      - description: Organization ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Organization update object
+        in: body
+        name: organization
+        required: true
+        schema:
+          $ref: '#/definitions/request.UpdateOrganization'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.Organization'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Update organization
+      tags:
+      - /api/v1/organizations
+  /organizations/{id}/members:
+    get:
+      consumes:
+      - application/json
+      description: Get organization details including member list (user must have
+        access)
+      parameters:
+      - description: Organization ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.OrganizationWithMembers'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get organization with members
+      tags:
+      - /api/v1/organizations
+  /organizations/{id}/users:
+    post:
+      consumes:
+      - application/json
+      description: Add user to organization (admin only)
+      parameters:
+      - description: Organization ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: User to add
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/request.AddUserToOrganization'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/wrapper.SuccessWrapper'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Add user to organization
+      tags:
+      - /api/v1/organizations
+  /organizations/{id}/users/{user_id}:
+    delete:
+      consumes:
+      - application/json
+      description: Remove user from organization (admin only)
+      parameters:
+      - description: Organization ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: User ID to remove
+        in: path
+        name: user_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/wrapper.SuccessWrapper'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Remove user from organization
+      tags:
+      - /api/v1/organizations
+  /organizations/{id}/users/{user_id}/role:
+    put:
+      consumes:
+      - application/json
+      description: Update user role in organization (admin only)
+      parameters:
+      - description: Organization ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      - description: New role
+        enum:
+        - admin
+        - member
+        - viewer
+        in: query
+        name: role
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/wrapper.SuccessWrapper'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Update user role in organization
+      tags:
+      - /api/v1/organizations
+  /organizations/my:
+    get:
+      consumes:
+      - application/json
+      description: Get list of organizations user has access to
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.UserOrganizations'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get user's organizations
+      tags:
+      - /api/v1/organizations
   /users/auth:
     post:
       consumes:
@@ -1359,6 +1857,35 @@ paths:
           schema:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Get user by ID
+      tags:
+      - users
+  /users/profile/full:
+    get:
+      consumes:
+      - application/json
+      description: Get user profile including their organizations
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  additionalProperties: true
+                  type: object
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get user profile with organizations
       tags:
       - users
 swagger: "2.0"
