@@ -1389,7 +1389,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "/api/v1/organizations"
+                    "/api/v1/admin/organizations"
                 ],
                 "summary": "Create new organization",
                 "parameters": [
@@ -1453,7 +1453,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "/api/v1/organizations"
+                    "/api/v1/admin/organizations"
                 ],
                 "summary": "Get user's organizations",
                 "responses": {
@@ -1500,7 +1500,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "/api/v1/organizations"
+                    "/api/v1/admin/organizations"
                 ],
                 "summary": "Get organization by ID",
                 "parameters": [
@@ -1572,7 +1572,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "/api/v1/organizations"
+                    "/api/v1/admin/organizations"
                 ],
                 "summary": "Update organization",
                 "parameters": [
@@ -1653,7 +1653,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "/api/v1/organizations"
+                    "/api/v1/admin/organizations"
                 ],
                 "summary": "Delete organization",
                 "parameters": [
@@ -1715,7 +1715,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "/api/v1/organizations"
+                    "/api/v1/admin/organizations"
                 ],
                 "summary": "Get organization with members",
                 "parameters": [
@@ -1789,7 +1789,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "/api/v1/organizations"
+                    "/api/v1/admin/organizations"
                 ],
                 "summary": "Add user to organization",
                 "parameters": [
@@ -1860,7 +1860,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "/api/v1/organizations"
+                    "/api/v1/admin/organizations"
                 ],
                 "summary": "Remove user from organization",
                 "parameters": [
@@ -1929,7 +1929,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "/api/v1/organizations"
+                    "/api/v1/admin/organizations"
                 ],
                 "summary": "Update user role in organization",
                 "parameters": [
