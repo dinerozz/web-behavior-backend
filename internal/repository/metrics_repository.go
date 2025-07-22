@@ -318,56 +318,67 @@ func buildDeepWorkSessionsQuery(sessionFilter string) string {
 	)
 
 	return fmt.Sprintf(`%s,
-	-- Hourly статистика (ИСПРАВЛЕНО)
+	-- Упрощенная hourly статистика (ИСПРАВЛЕНО)
+	hours_series AS (
+		SELECT generate_series(
+			date_trunc('hour', $2::timestamp),
+			date_trunc('hour', $3::timestamp), 
+			'1 hour'::interval
+		) as hour_start
+	),
 	hourly_stats AS (
 		SELECT 
-			EXTRACT(HOUR FROM hour_start)::integer as hour,
-			DATE(hour_start)::text as date,
-			SUM(hour_duration) as deep_work_minutes,
-			COUNT(DISTINCT dwb.block_id) as sessions_count,
-			SUM(dwb.context_switches * (hour_duration / dwb.duration_minutes)) as context_switches,
-			AVG(dwb.switches_per_hour) as avg_switches_per_hour
-		FROM deep_work_blocks dwb
-		CROSS JOIN LATERAL (
-			SELECT 
-				generate_series(
-					DATE_TRUNC('hour', dwb.start_time),
-					DATE_TRUNC('hour', dwb.end_time),
-					'1 hour'::interval
-				) as hour_start
-		) hours
-		CROSS JOIN LATERAL (
-			SELECT 
+			EXTRACT(HOUR FROM hs.hour_start)::integer as hour,
+			DATE(hs.hour_start)::text as date,
+			COALESCE(SUM(
 				CASE 
-					-- Полный час внутри сессии
-					WHEN hour_start >= DATE_TRUNC('hour', dwb.start_time) 
-						AND hour_start + INTERVAL '1 hour' <= dwb.end_time 
-					THEN 60.0
-					-- Частичный час в начале
-					WHEN hour_start = DATE_TRUNC('hour', dwb.start_time) 
-						AND hour_start + INTERVAL '1 hour' > dwb.end_time
-					THEN EXTRACT(EPOCH FROM (dwb.end_time - dwb.start_time)) / 60.0
-					-- Частичный час в начале (но сессия продолжается)
-					WHEN hour_start = DATE_TRUNC('hour', dwb.start_time)
-					THEN EXTRACT(EPOCH FROM (hour_start + INTERVAL '1 hour' - dwb.start_time)) / 60.0
-					-- Частичный час в конце
-					WHEN hour_start + INTERVAL '1 hour' > dwb.end_time
-					THEN EXTRACT(EPOCH FROM (dwb.end_time - hour_start)) / 60.0
-					-- Полный час
-					ELSE 60.0
-				END as hour_duration
-		) duration_calc
-		WHERE hour_duration > 0
-		GROUP BY EXTRACT(HOUR FROM hour_start), DATE(hour_start)
+					WHEN dwb.start_time <= hs.hour_start + INTERVAL '1 hour' 
+						AND dwb.end_time >= hs.hour_start
+					THEN LEAST(
+						EXTRACT(EPOCH FROM (hs.hour_start + INTERVAL '1 hour' - GREATEST(dwb.start_time, hs.hour_start))),
+						EXTRACT(EPOCH FROM (LEAST(dwb.end_time, hs.hour_start + INTERVAL '1 hour') - GREATEST(dwb.start_time, hs.hour_start)))
+					) / 60.0
+					ELSE 0
+				END
+			), 0) as deep_work_minutes,
+			COUNT(DISTINCT CASE WHEN dwb.start_time <= hs.hour_start + INTERVAL '1 hour' 
+								AND dwb.end_time >= hs.hour_start THEN dwb.block_id END) as sessions_count,
+			COALESCE(SUM(
+				CASE 
+					WHEN dwb.start_time <= hs.hour_start + INTERVAL '1 hour' 
+						AND dwb.end_time >= hs.hour_start
+					THEN dwb.context_switches * (
+						LEAST(
+							EXTRACT(EPOCH FROM (hs.hour_start + INTERVAL '1 hour' - GREATEST(dwb.start_time, hs.hour_start))),
+							EXTRACT(EPOCH FROM (LEAST(dwb.end_time, hs.hour_start + INTERVAL '1 hour') - GREATEST(dwb.start_time, hs.hour_start)))
+						) / EXTRACT(EPOCH FROM (dwb.end_time - dwb.start_time))
+					)
+					ELSE 0
+				END
+			), 0)::integer as context_switches,
+			COALESCE(AVG(CASE WHEN dwb.start_time <= hs.hour_start + INTERVAL '1 hour' 
+							AND dwb.end_time >= hs.hour_start THEN dwb.switches_per_hour END), 0) as avg_switches_per_hour
+		FROM hours_series hs
+		LEFT JOIN deep_work_blocks dwb ON dwb.start_time <= hs.hour_start + INTERVAL '1 hour' 
+								AND dwb.end_time >= hs.hour_start
+		GROUP BY EXTRACT(HOUR FROM hs.hour_start), DATE(hs.hour_start), hs.hour_start
+		HAVING COALESCE(SUM(
+			CASE 
+				WHEN dwb.start_time <= hs.hour_start + INTERVAL '1 hour' 
+					AND dwb.end_time >= hs.hour_start
+				THEN 1 ELSE 0
+			END
+		), 0) > 0  -- Только часы с активностью
 	),
-	-- Общая статистика по всем минутам для расчета процента
+	-- Общая статистика по АКТИВНЫМ минутам для расчета процента (ИСПРАВЛЕНО)
 	total_tracked AS (
 		SELECT 
 			COUNT(DISTINCT DATE_TRUNC('minute', timestamp)) as total_minutes
 		FROM user_behaviors 
 		WHERE user_id = $1 
 			AND timestamp >= $2 
-			AND timestamp <= $3 %s
+			AND timestamp <= $3
+			AND event_type = ANY($4::text[]) %s  -- Только активные события
 	),
 	-- Финальная агрегация
 	aggregated_stats AS (
