@@ -40,6 +40,8 @@ definitions:
     type: object
   entity.CreateExtensionUserRequest:
     properties:
+      organization_id:
+        type: string
       username:
         maxLength: 100
         minLength: 3
@@ -182,6 +184,10 @@ definitions:
         type: boolean
       lastUsedAt:
         type: string
+      organization:
+        $ref: '#/definitions/entity.OrganizationInfo'
+      organization_id:
+        type: string
       updatedAt:
         type: string
       username:
@@ -197,6 +203,8 @@ definitions:
         type: boolean
       lastUsedAt:
         type: string
+      organization:
+        $ref: '#/definitions/entity.OrganizationInfo'
       updatedAt:
         type: string
       username:
@@ -225,6 +233,13 @@ definitions:
         description: '"ai" или "fallback"'
         type: string
       timestamp:
+        type: string
+    type: object
+  entity.OrganizationInfo:
+    properties:
+      id:
+        type: string
+      name:
         type: string
     type: object
   entity.PaginatedResponse:
@@ -315,6 +330,8 @@ definitions:
         type: string
       isActive:
         type: boolean
+      organization_id:
+        type: string
       username:
         maxLength: 100
         minLength: 3
