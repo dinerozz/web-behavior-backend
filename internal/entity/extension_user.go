@@ -17,12 +17,19 @@ type ExtensionUser struct {
 }
 
 type ExtensionUserPublic struct {
-	ID         uuid.UUID  `json:"id"`
-	Username   string     `json:"username"`
-	IsActive   bool       `json:"isActive"`
-	CreatedAt  time.Time  `json:"createdAt"`
-	UpdatedAt  time.Time  `json:"updatedAt"`
-	LastUsedAt *time.Time `json:"lastUsedAt"`
+	ID             uuid.UUID         `json:"id"`
+	Username       string            `json:"username"`
+	IsActive       bool              `json:"isActive"`
+	CreatedAt      time.Time         `json:"createdAt"`
+	UpdatedAt      time.Time         `json:"updatedAt"`
+	LastUsedAt     *time.Time        `json:"lastUsedAt"`
+	OrganizationID *uuid.UUID        `json:"organizationId"`
+	Organization   *OrganizationInfo `json:"organization,omitempty"`
+}
+
+type OrganizationInfo struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
 }
 
 type CreateExtensionUserRequest struct {
@@ -41,12 +48,13 @@ type RegenerateAPIKeyResponse struct {
 }
 
 type ExtensionUserFilter struct {
-	Username string `form:"username" json:"username"`
-	IsActive *bool  `form:"isActive" json:"is_active"`
-	Limit    int    `form:"limit" json:"limit"`
-	Offset   int    `form:"offset" json:"offset"`
-	Page     int    `form:"page" json:"page"`
-	PerPage  int    `form:"per_page" json:"per_page"`
+	Username       string     `form:"username" json:"username"`
+	IsActive       *bool      `form:"isActive" json:"is_active"`
+	OrganizationID *uuid.UUID `form:"organizationId" json:"organization_id"`
+	Limit          int        `form:"limit" json:"limit"`
+	Offset         int        `form:"offset" json:"offset"`
+	Page           int        `form:"page" json:"page"`
+	PerPage        int        `form:"per_page" json:"per_page"`
 }
 
 type ExtensionUserStats struct {
