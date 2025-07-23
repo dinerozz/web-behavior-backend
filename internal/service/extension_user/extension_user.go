@@ -4,7 +4,6 @@ package service
 import (
 	"context"
 	"fmt"
-
 	"github.com/dinerozz/web-behavior-backend/internal/entity"
 	"github.com/dinerozz/web-behavior-backend/internal/repository"
 	"github.com/gofrs/uuid"
@@ -24,26 +23,42 @@ type ExtensionUserService interface {
 }
 
 type extensionUserService struct {
-	repo repository.ExtensionUserRepository
+	repo    repository.ExtensionUserRepository
+	orgRepo repository.OrganizationRepository
 }
 
-func NewExtensionUserService(repo repository.ExtensionUserRepository) ExtensionUserService {
+func NewExtensionUserService(repo repository.ExtensionUserRepository, orgRepo repository.OrganizationRepository) ExtensionUserService {
 	return &extensionUserService{
-		repo: repo,
+		repo:    repo,
+		orgRepo: orgRepo,
 	}
 }
 
 func (s *extensionUserService) CreateUser(ctx context.Context, req entity.CreateExtensionUserRequest) (*entity.ExtensionUser, error) {
-	existingUser, err := s.repo.GetByUsername(ctx, req.Username)
+	exists, err := s.repo.ExistsByUsername(ctx, req.Username)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check username uniqueness: %w", err)
+		return nil, fmt.Errorf("failed to check username existence: %w", err)
 	}
-	if existingUser != nil {
+
+	if req.OrganizationID == nil {
+		return nil, fmt.Errorf("organization ID is required")
+	}
+
+	if exists {
 		return nil, fmt.Errorf("username already exists")
 	}
 
+	apiKey, err := s.repo.GenerateAPIKey()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate API key: %w", err)
+	}
+
 	user := &entity.ExtensionUser{
-		Username: req.Username,
+		ID:             uuid.Must(uuid.NewV4()),
+		Username:       req.Username,
+		APIKey:         apiKey,
+		IsActive:       true,
+		OrganizationID: *req.OrganizationID,
 	}
 
 	err = s.repo.Create(ctx, user)
@@ -53,7 +68,6 @@ func (s *extensionUserService) CreateUser(ctx context.Context, req entity.Create
 
 	return user, nil
 }
-
 func (s *extensionUserService) GetUserByID(ctx context.Context, id uuid.UUID) (*entity.ExtensionUser, error) {
 	user, err := s.repo.GetByID(ctx, id)
 	if err != nil {
@@ -236,12 +250,25 @@ func (s *extensionUserService) GetStats(ctx context.Context) (*entity.ExtensionU
 }
 
 func (s *extensionUserService) toPublicUser(user *entity.ExtensionUser) *entity.ExtensionUserPublic {
-	return &entity.ExtensionUserPublic{
+	publicUser := &entity.ExtensionUserPublic{
 		ID:         user.ID,
 		Username:   user.Username,
 		IsActive:   user.IsActive,
 		CreatedAt:  user.CreatedAt,
 		UpdatedAt:  user.UpdatedAt,
 		LastUsedAt: user.LastUsedAt,
+		Organization: &entity.OrganizationInfo{
+			ID:   nil,
+			Name: "",
+		},
 	}
+
+	if user.OrganizationID != uuid.Nil {
+		if org, err := s.orgRepo.GetOrganizationByID(user.OrganizationID); err == nil {
+			publicUser.Organization.ID = &org.ID
+			publicUser.Organization.Name = org.Name
+		}
+	}
+
+	return publicUser
 }

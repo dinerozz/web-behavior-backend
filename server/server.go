@@ -88,7 +88,7 @@ func RunServer(config *config.Config) {
 	// Initialize services
 	userSrv := user.NewUserService(userRepo)
 	userBehaviorService := service.NewUserBehaviorService(userBehaviorRepo)
-	userExtensionService := extensionUserService.NewExtensionUserService(userExtensionRepo)
+	userExtensionService := extensionUserService.NewExtensionUserService(userExtensionRepo, *organizationRepo)
 	organizationSrv := organizationService.NewOrganizationService(organizationRepo, userRepo)
 
 	aiService := aiAnalyticsService.NewAIAnalyticsService("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")
