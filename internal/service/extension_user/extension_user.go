@@ -119,14 +119,9 @@ func (s *extensionUserService) GetAllUsers(ctx context.Context, filter entity.Ex
 		}
 	}
 
-	users, err := s.repo.GetAll(ctx, filter)
+	users, err := s.repo.GetAllWithOrganization(ctx, filter)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get users: %w", err)
-	}
-
-	publicUsers := make([]entity.ExtensionUserPublic, len(users))
-	for i, user := range users {
-		publicUsers[i] = *s.toPublicUser(&user)
 	}
 
 	var paginationInfo *entity.PaginationInfo
@@ -145,7 +140,7 @@ func (s *extensionUserService) GetAllUsers(ctx context.Context, filter entity.Ex
 		}
 	}
 
-	return publicUsers, paginationInfo, nil
+	return users, paginationInfo, nil
 }
 
 func (s *extensionUserService) UpdateUser(ctx context.Context, id uuid.UUID, req entity.UpdateExtensionUserRequest) (*entity.ExtensionUserPublic, error) {

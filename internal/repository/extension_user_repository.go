@@ -28,6 +28,7 @@ type ExtensionUserRepository interface {
 	GetStats(ctx context.Context) (*entity.ExtensionUserStats, error)
 	IsAPIKeyValid(ctx context.Context, apiKey string) bool
 	CountByFilter(ctx context.Context, filter entity.ExtensionUserFilter) (int, error)
+	GetAllWithOrganization(ctx context.Context, filter entity.ExtensionUserFilter) ([]entity.ExtensionUserPublic, error)
 }
 
 type extensionUserRepository struct {
@@ -110,7 +111,11 @@ func (r *extensionUserRepository) GetByUsername(ctx context.Context, username st
 func (r *extensionUserRepository) GetAll(ctx context.Context, filter entity.ExtensionUserFilter) ([]entity.ExtensionUser, error) {
 	var users []entity.ExtensionUser
 
-	query := "SELECT * FROM extension_users WHERE 1=1"
+	query := `
+		SELECT id, username, api_key, is_active, created_at, updated_at, last_used_at, organization_id
+		FROM extension_users 
+		WHERE 1=1
+	`
 	args := []interface{}{}
 	argIndex := 1
 
@@ -123,6 +128,12 @@ func (r *extensionUserRepository) GetAll(ctx context.Context, filter entity.Exte
 	if filter.IsActive != nil {
 		query += fmt.Sprintf(" AND is_active = $%d", argIndex)
 		args = append(args, *filter.IsActive)
+		argIndex++
+	}
+
+	if filter.OrganizationID != nil {
+		query += fmt.Sprintf(" AND organization_id = $%d", argIndex)
+		args = append(args, *filter.OrganizationID)
 		argIndex++
 	}
 
@@ -147,6 +158,94 @@ func (r *extensionUserRepository) GetAll(ctx context.Context, filter entity.Exte
 	err := r.db.SelectContext(ctx, &users, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get extension users: %w", err)
+	}
+
+	return users, nil
+}
+
+func (r *extensionUserRepository) GetAllWithOrganization(ctx context.Context, filter entity.ExtensionUserFilter) ([]entity.ExtensionUserPublic, error) {
+	query := `
+		SELECT 
+			eu.id, eu.username, eu.is_active, eu.created_at, eu.updated_at, 
+			eu.last_used_at, eu.organization_id,
+			o.name as organization_name
+		FROM extension_users eu
+		LEFT JOIN organizations o ON eu.organization_id = o.id
+		WHERE 1=1
+	`
+	args := []interface{}{}
+	argIndex := 1
+
+	if filter.Username != "" {
+		query += fmt.Sprintf(" AND eu.username ILIKE $%d", argIndex)
+		args = append(args, "%"+filter.Username+"%")
+		argIndex++
+	}
+
+	if filter.IsActive != nil {
+		query += fmt.Sprintf(" AND eu.is_active = $%d", argIndex)
+		args = append(args, *filter.IsActive)
+		argIndex++
+	}
+
+	if filter.OrganizationID != nil {
+		query += fmt.Sprintf(" AND eu.organization_id = $%d", argIndex)
+		args = append(args, *filter.OrganizationID)
+		argIndex++
+	}
+
+	query += " ORDER BY eu.created_at DESC"
+
+	if filter.Page > 0 && filter.PerPage > 0 {
+		offset := (filter.Page - 1) * filter.PerPage
+		query += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
+		args = append(args, filter.PerPage, offset)
+	} else {
+		if filter.Limit > 0 {
+			query += fmt.Sprintf(" LIMIT $%d", argIndex)
+			args = append(args, filter.Limit)
+			argIndex++
+		}
+		if filter.Offset > 0 {
+			query += fmt.Sprintf(" OFFSET $%d", argIndex)
+			args = append(args, filter.Offset)
+		}
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get extension users: %w", err)
+	}
+	defer rows.Close()
+
+	var users []entity.ExtensionUserPublic
+	for rows.Next() {
+		var user entity.ExtensionUserPublic
+		var orgName sql.NullString
+
+		err := rows.Scan(
+			&user.ID,
+			&user.Username,
+			&user.IsActive,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+			&user.LastUsedAt,
+			&user.OrganizationID,
+			&orgName,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan extension user: %w", err)
+		}
+
+		// Add organization info if available
+		if user.OrganizationID != nil && orgName.Valid {
+			user.Organization = &entity.OrganizationInfo{
+				ID:   *user.OrganizationID,
+				Name: orgName.String,
+			}
+		}
+
+		users = append(users, user)
 	}
 
 	return users, nil
