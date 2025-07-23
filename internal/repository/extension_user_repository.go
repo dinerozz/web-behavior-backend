@@ -6,13 +6,13 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
-	"strings"
-	"time"
-
 	"github.com/dinerozz/web-behavior-backend/internal/entity"
 	"github.com/gofrs/uuid"
 	"github.com/jmoiron/sqlx"
+	"strings"
+	"time"
 )
 
 type ExtensionUserRepository interface {
@@ -29,6 +29,8 @@ type ExtensionUserRepository interface {
 	IsAPIKeyValid(ctx context.Context, apiKey string) bool
 	CountByFilter(ctx context.Context, filter entity.ExtensionUserFilter) (int, error)
 	GetAllWithOrganization(ctx context.Context, filter entity.ExtensionUserFilter) ([]entity.ExtensionUserPublic, error)
+	ExistsByUsername(ctx context.Context, username string) (bool, error)
+	GenerateAPIKey() (string, error)
 }
 
 type extensionUserRepository struct {
@@ -40,39 +42,72 @@ func NewExtensionUserRepository(db *sqlx.DB) ExtensionUserRepository {
 }
 
 func (r *extensionUserRepository) Create(ctx context.Context, user *entity.ExtensionUser) error {
-	user.ID = uuid.Must(uuid.NewV4())
-	user.CreatedAt = time.Now()
-	user.UpdatedAt = time.Now()
-	user.IsActive = true
-
-	apiKey, err := r.generateAPIKey()
-	if err != nil {
-		return fmt.Errorf("failed to generate API key: %w", err)
-	}
-	user.APIKey = apiKey
-
 	query := `
-		INSERT INTO extension_users (id, username, api_key, is_active, created_at, updated_at)
-		VALUES (:id, :username, :api_key, :is_active, :created_at, :updated_at)`
-
-	_, err = r.db.NamedExecContext(ctx, query, user)
-	if err != nil {
-		return fmt.Errorf("failed to create extension user: %w", err)
-	}
-
-	return nil
+		INSERT INTO extension_users (id, username, api_key, is_active, organization_id, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`
+	_, err := r.db.ExecContext(ctx, query,
+		user.ID,
+		user.Username,
+		user.APIKey,
+		user.IsActive,
+		user.OrganizationID,
+		user.CreatedAt,
+		user.UpdatedAt,
+	)
+	return err
 }
 
 func (r *extensionUserRepository) GetByID(ctx context.Context, id uuid.UUID) (*entity.ExtensionUser, error) {
-	var user entity.ExtensionUser
-	query := `SELECT * FROM extension_users WHERE id = $1`
+	query := `
+       SELECT 
+          eu.id, eu.username, eu.is_active, eu.created_at, eu.updated_at, 
+          eu.last_used_at, eu.organization_id, eu.api_key,
+          o.id as org_id, o.name as organization_name
+       FROM extension_users eu
+       LEFT JOIN organizations o ON eu.organization_id = o.id
+       WHERE eu.id = $1
+    `
 
-	err := r.db.GetContext(ctx, &user, query, id)
+	row := r.db.QueryRowContext(ctx, query, id)
+
+	var user entity.ExtensionUser
+	var organizationID sql.NullString
+	var orgID sql.NullString
+	var orgName sql.NullString
+	var apiKey string
+
+	err := row.Scan(
+		&user.ID,
+		&user.Username,
+		&user.IsActive,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+		&user.LastUsedAt,
+		&organizationID,
+		&apiKey,
+		&orgID,
+		&orgName,
+	)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("extension user not found")
 		}
-		return nil, fmt.Errorf("failed to get extension user by ID: %w", err)
+		return nil, fmt.Errorf("failed to scan extension user: %w", err)
+	}
+
+	user.APIKey = apiKey
+	user.Organization = &entity.OrganizationInfo{
+		ID:   nil,
+		Name: "",
+	}
+
+	if orgID.Valid && orgName.Valid {
+		orgUUID, err := uuid.FromString(orgID.String)
+		if err == nil {
+			user.Organization.ID = &orgUUID
+			user.Organization.Name = orgName.String
+		}
 	}
 
 	return &user, nil
@@ -165,14 +200,14 @@ func (r *extensionUserRepository) GetAll(ctx context.Context, filter entity.Exte
 
 func (r *extensionUserRepository) GetAllWithOrganization(ctx context.Context, filter entity.ExtensionUserFilter) ([]entity.ExtensionUserPublic, error) {
 	query := `
-		SELECT 
-			eu.id, eu.username, eu.is_active, eu.created_at, eu.updated_at, 
-			eu.last_used_at, eu.organization_id,
-			o.name as organization_name
-		FROM extension_users eu
-		LEFT JOIN organizations o ON eu.organization_id = o.id
-		WHERE 1=1
-	`
+       SELECT 
+          eu.id, eu.username, eu.is_active, eu.created_at, eu.updated_at, 
+          eu.last_used_at, eu.organization_id,
+          o.id as org_id, o.name as organization_name
+       FROM extension_users eu
+       LEFT JOIN organizations o ON eu.organization_id = o.id
+       WHERE 1=1
+    `
 	args := []interface{}{}
 	argIndex := 1
 
@@ -221,6 +256,8 @@ func (r *extensionUserRepository) GetAllWithOrganization(ctx context.Context, fi
 	var users []entity.ExtensionUserPublic
 	for rows.Next() {
 		var user entity.ExtensionUserPublic
+		var organizationID sql.NullString
+		var orgID sql.NullString
 		var orgName sql.NullString
 
 		err := rows.Scan(
@@ -230,18 +267,24 @@ func (r *extensionUserRepository) GetAllWithOrganization(ctx context.Context, fi
 			&user.CreatedAt,
 			&user.UpdatedAt,
 			&user.LastUsedAt,
-			&user.OrganizationID,
-			&orgName,
+			&organizationID, // eu.organization_id
+			&orgID,          // o.id
+			&orgName,        // o.name
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan extension user: %w", err)
 		}
 
-		// Add organization info if available
-		if user.OrganizationID != nil && orgName.Valid {
-			user.Organization = &entity.OrganizationInfo{
-				ID:   *user.OrganizationID,
-				Name: orgName.String,
+		user.Organization = &entity.OrganizationInfo{
+			ID:   nil,
+			Name: "",
+		}
+
+		if orgID.Valid && orgName.Valid {
+			orgUUID, err := uuid.FromString(orgID.String)
+			if err == nil {
+				user.Organization.ID = &orgUUID
+				user.Organization.Name = orgName.String
 			}
 		}
 
@@ -274,55 +317,67 @@ func (r *extensionUserRepository) CountByFilter(ctx context.Context, filter enti
 }
 
 func (r *extensionUserRepository) Update(ctx context.Context, id uuid.UUID, req entity.UpdateExtensionUserRequest) (*entity.ExtensionUser, error) {
-	var setParts []string
-	var args []interface{}
+	existingUser, err := r.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	setParts := []string{"updated_at = CURRENT_TIMESTAMP"}
+	args := []interface{}{}
 	argIndex := 1
 
 	if req.Username != nil {
 		setParts = append(setParts, fmt.Sprintf("username = $%d", argIndex))
 		args = append(args, *req.Username)
+		existingUser.Username = *req.Username
 		argIndex++
 	}
 
 	if req.IsActive != nil {
 		setParts = append(setParts, fmt.Sprintf("is_active = $%d", argIndex))
 		args = append(args, *req.IsActive)
+		existingUser.IsActive = *req.IsActive
 		argIndex++
 	}
 
 	if req.APIKey != nil {
 		setParts = append(setParts, fmt.Sprintf("api_key = $%d", argIndex))
 		args = append(args, *req.APIKey)
+		existingUser.APIKey = *req.APIKey
 		argIndex++
 	}
 
-	if len(setParts) == 0 {
-		return r.GetByID(ctx, id)
+	if req.OrganizationID != nil {
+		setParts = append(setParts, fmt.Sprintf("organization_id = $%d", argIndex))
+		args = append(args, req.OrganizationID)
+		existingUser.OrganizationID = *req.OrganizationID
+		argIndex++
 	}
 
-	setParts = append(setParts, "updated_at = CURRENT_TIMESTAMP")
+	query := fmt.Sprintf("UPDATE extension_users SET %s WHERE id = $%d",
+		strings.Join(setParts, ", "), argIndex)
 	args = append(args, id)
 
-	query := fmt.Sprintf(`
-		UPDATE extension_users 
-		SET %s
-		WHERE id = $%d
-		RETURNING *`, strings.Join(setParts, ", "), argIndex)
-
-	var user entity.ExtensionUser
-	err := r.db.GetContext(ctx, &user, query, args...)
+	result, err := r.db.ExecContext(ctx, query, args...)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("failed to update extension user: %w", err)
+		return nil, err
 	}
 
-	return &user, nil
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+
+	if rowsAffected == 0 {
+		return nil, fmt.Errorf("extension user not found")
+	}
+
+	existingUser.UpdatedAt = time.Now()
+	return existingUser, nil
 }
 
 func (r *extensionUserRepository) RegenerateAPIKey(ctx context.Context, id uuid.UUID) (string, error) {
-	newAPIKey, err := r.generateAPIKey()
+	newAPIKey, err := r.GenerateAPIKey()
 	if err != nil {
 		return "", fmt.Errorf("failed to generate new API key: %w", err)
 	}
@@ -403,7 +458,6 @@ func (r *extensionUserRepository) GetStats(ctx context.Context) (*entity.Extensi
 		return nil, fmt.Errorf("failed to get general stats: %w", err)
 	}
 
-	// Пользователи, использовавшие API сегодня
 	todayQuery := `
 		SELECT COUNT(*) 
 		FROM extension_users 
@@ -415,7 +469,6 @@ func (r *extensionUserRepository) GetStats(ctx context.Context) (*entity.Extensi
 		return nil, fmt.Errorf("failed to get today stats: %w", err)
 	}
 
-	// Пользователи, использовавшие API на этой неделе
 	weekQuery := `
 		SELECT COUNT(*) 
 		FROM extension_users 
@@ -430,6 +483,13 @@ func (r *extensionUserRepository) GetStats(ctx context.Context) (*entity.Extensi
 	return &stats, nil
 }
 
+func (r *extensionUserRepository) ExistsByUsername(ctx context.Context, username string) (bool, error) {
+	var count int
+	query := `SELECT COUNT(*) FROM extension_users WHERE username = $1`
+	err := r.db.GetContext(ctx, &count, query, username)
+	return count > 0, err
+}
+
 func (r *extensionUserRepository) IsAPIKeyValid(ctx context.Context, apiKey string) bool {
 	var count int
 	query := `SELECT COUNT(*) FROM extension_users WHERE api_key = $1 AND is_active = true`
@@ -442,8 +502,7 @@ func (r *extensionUserRepository) IsAPIKeyValid(ctx context.Context, apiKey stri
 	return count > 0
 }
 
-// generateAPIKey генерирует уникальный API ключ
-func (r *extensionUserRepository) generateAPIKey() (string, error) {
+func (r *extensionUserRepository) GenerateAPIKey() (string, error) {
 	bytes := make([]byte, 32)
 	if _, err := rand.Read(bytes); err != nil {
 		return "", err
@@ -458,9 +517,8 @@ func (r *extensionUserRepository) generateAPIKey() (string, error) {
 		return "", err
 	}
 
-	// Если ключ уже существует, генерируем новый
 	if count > 0 {
-		return r.generateAPIKey()
+		return r.GenerateAPIKey()
 	}
 
 	return apiKey, nil
