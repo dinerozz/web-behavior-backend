@@ -1582,6 +1582,9 @@ const docTemplate = `{
                 "username"
             ],
             "properties": {
+                "organization_id": {
+                    "type": "string"
+                },
                 "username": {
                     "type": "string",
                     "maxLength": 100,
@@ -1791,6 +1794,12 @@ const docTemplate = `{
                 "lastUsedAt": {
                     "type": "string"
                 },
+                "organization": {
+                    "$ref": "#/definitions/entity.OrganizationInfo"
+                },
+                "organization_id": {
+                    "type": "string"
+                },
                 "updatedAt": {
                     "type": "string"
                 },
@@ -1813,6 +1822,9 @@ const docTemplate = `{
                 },
                 "lastUsedAt": {
                     "type": "string"
+                },
+                "organization": {
+                    "$ref": "#/definitions/entity.OrganizationInfo"
                 },
                 "updatedAt": {
                     "type": "string"
@@ -1856,6 +1868,17 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
+        "entity.OrganizationInfo": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 }
             }
@@ -1991,6 +2014,9 @@ const docTemplate = `{
                 },
                 "isActive": {
                     "type": "boolean"
+                },
+                "organization_id": {
+                    "type": "string"
                 },
                 "username": {
                     "type": "string",

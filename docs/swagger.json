@@ -1571,6 +1571,9 @@
                 "username"
             ],
             "properties": {
+                "organization_id": {
+                    "type": "string"
+                },
                 "username": {
                     "type": "string",
                     "maxLength": 100,
@@ -1780,6 +1783,12 @@
                 "lastUsedAt": {
                     "type": "string"
                 },
+                "organization": {
+                    "$ref": "#/definitions/entity.OrganizationInfo"
+                },
+                "organization_id": {
+                    "type": "string"
+                },
                 "updatedAt": {
                     "type": "string"
                 },
@@ -1802,6 +1811,9 @@
                 },
                 "lastUsedAt": {
                     "type": "string"
+                },
+                "organization": {
+                    "$ref": "#/definitions/entity.OrganizationInfo"
                 },
                 "updatedAt": {
                     "type": "string"
@@ -1845,6 +1857,17 @@
                     "type": "string"
                 },
                 "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
+        "entity.OrganizationInfo": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 }
             }
@@ -1980,6 +2003,9 @@
                 },
                 "isActive": {
                     "type": "boolean"
+                },
+                "organization_id": {
+                    "type": "string"
                 },
                 "username": {
                     "type": "string",
