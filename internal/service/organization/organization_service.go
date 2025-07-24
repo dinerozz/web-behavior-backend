@@ -29,6 +29,15 @@ func (s *OrganizationService) CreateOrganization(org *request.CreateOrganization
 	return s.Repo.CreateOrganization(org, creatorID)
 }
 
+func (s *OrganizationService) GetAll() (*[]response.Organization, error) {
+	organizations, err := s.Repo.GetAll()
+	if err != nil {
+		return &[]response.Organization{}, fmt.Errorf("failed to get organizations: %w", err)
+	}
+
+	return organizations, nil
+}
+
 func (s *OrganizationService) GetOrganizationByID(orgID uuid.UUID, userID uuid.UUID) (response.Organization, error) {
 	_, err := s.Repo.CheckUserAccess(orgID, userID)
 	if err != nil {

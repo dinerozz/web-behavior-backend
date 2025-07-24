@@ -1395,6 +1395,51 @@ paths:
       tags:
       - /api/v1/admin/extension
   /organizations:
+    get:
+      consumes:
+      - application/json
+      description: Get organization details by ID (user must have access)
+      parameters:
+      - description: Organization ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.Organization'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get organization by ID
+      tags:
+      - /api/v1/admin/organizations
     post:
       consumes:
       - application/json

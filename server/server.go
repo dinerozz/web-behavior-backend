@@ -233,6 +233,7 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 		{
 			// Organization CRUD
 			orgRoutes.POST("", routerHandler.organizationHandler.CreateOrganization)
+			orgRoutes.GET("", routerHandler.organizationHandler.GetAll)
 			orgRoutes.GET("/my", routerHandler.organizationHandler.GetUserOrganizations)
 			orgRoutes.GET("/:id", routerHandler.organizationHandler.GetOrganization)
 			orgRoutes.GET("/:id/members", routerHandler.organizationHandler.GetOrganizationWithMembers)

@@ -57,6 +57,30 @@ func (h *OrganizationHandler) CreateOrganization(c *gin.Context) {
 	c.JSON(http.StatusCreated, wrapper.ResponseWrapper{Data: organization, Success: true})
 }
 
+// GetAllOrganizations godoc
+// @Summary Get organization by ID
+// @Description Get organization details by ID (user must have access)
+// @Tags /api/v1/admin/organizations
+// @Accept json
+// @Produce json
+// @Param id path string true "Organization ID"
+// @Success 200 {object} wrapper.ResponseWrapper{data=response.Organization}
+// @Failure 400 {object} wrapper.ErrorWrapper
+// @Failure 401 {object} wrapper.ErrorWrapper
+// @Failure 403 {object} wrapper.ErrorWrapper
+// @Failure 404 {object} wrapper.ErrorWrapper
+// @Failure 500 {object} wrapper.ErrorWrapper
+// @Router /organizations [get]
+func (h *OrganizationHandler) GetAll(c *gin.Context) {
+	organizations, err := h.srv.GetAll()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{Message: err.Error(), Success: false})
+		return
+	}
+
+	c.JSON(http.StatusOK, wrapper.ResponseWrapper{Data: organizations, Success: true})
+}
+
 // GetOrganization godoc
 // @Summary Get organization by ID
 // @Description Get organization details by ID (user must have access)

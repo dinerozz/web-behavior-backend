@@ -59,6 +59,47 @@ func (r *OrganizationRepository) CreateOrganization(org *request.CreateOrganizat
 	return organization, nil
 }
 
+func (r *OrganizationRepository) GetAll() (*[]response.Organization, error) {
+	var organizations = make([]response.Organization, 0)
+	query := `SELECT id, name, description, created_at, updated_at 
+              FROM organizations 
+              ORDER BY created_at DESC`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var org response.Organization
+		var description sql.NullString
+
+		err = rows.Scan(
+			&org.ID,
+			&org.Name,
+			&description,
+			&org.CreatedAt,
+			&org.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if description.Valid {
+			org.Description = &description.String
+		}
+
+		organizations = append(organizations, org)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return &organizations, nil
+}
+
 func (r *OrganizationRepository) GetOrganizationByID(orgID uuid.UUID) (response.Organization, error) {
 	query := `SELECT id, name, description, created_at, updated_at FROM organizations WHERE id = $1`
 
