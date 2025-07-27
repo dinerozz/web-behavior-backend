@@ -164,7 +164,7 @@ func (h *OrganizationHandler) GetOrganizationWithMembers(c *gin.Context) {
 
 	organization, err := h.srv.GetOrganizationWithMembers(orgID, userUUID)
 	if err != nil {
-		if err.Error() == "access denied: user does not have access to this organization" {
+		if err.Error() == "access check failed: user does not have access to this organization" {
 			c.JSON(http.StatusForbidden, wrapper.ErrorWrapper{Message: "Access denied", Success: false})
 			return
 		}
