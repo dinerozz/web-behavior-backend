@@ -113,7 +113,7 @@ func RunServer(config *config.Config) {
 		organizationHandler:  organizationHandler,
 	}
 
-	r := setupRouter(routerHandler)
+	r := setupRouter(routerHandler, userRepo)
 
 	srv := &http.Server{
 		Addr:    ":" + config.Server.Port,
@@ -155,7 +155,7 @@ func gracefulShutdown(srv *http.Server) {
 	}
 }
 
-func setupRouter(routerHandler *RouterHandler) *gin.Engine {
+func setupRouter(routerHandler *RouterHandler, userRepo *repository.UserRepository) *gin.Engine {
 	r := gin.Default()
 	r.SetTrustedProxies([]string{"127.0.0.1", "::1"})
 
@@ -228,6 +228,12 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 		privateRoutes.GET("/users/profile/full", routerHandler.userHandler.GetUserWithOrganizations)
 		privateRoutes.POST("/users/logout", routerHandler.userHandler.Logout)
 		privateRoutes.POST("/users/register", routerHandler.userHandler.CreateUserWithPassword)
+
+		superAdminRoutes := privateRoutes.Group("")
+		superAdminRoutes.Use(middleware.SuperAdminMiddleware(userRepo))
+		{
+			superAdminRoutes.GET("/users", routerHandler.userHandler.GetAllUsers)
+		}
 
 		// Organization routes
 		orgRoutes := privateRoutes.Group("/organizations")

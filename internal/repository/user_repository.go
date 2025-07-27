@@ -72,11 +72,11 @@ func (r *UserRepository) GetUserById(userID uuid.UUID) (response.User, error) {
 }
 
 func (r *UserRepository) GetUserByUsername(username string) (response.User, error) {
-	query := `SELECT id, username, password FROM users WHERE username = $1`
+	query := `SELECT id, username, is_super_admin, password FROM users WHERE username = $1`
 
 	var user response.User
 	var password sql.NullString
-	err := r.db.QueryRow(query, username).Scan(&user.ID, &user.Username, &password)
+	err := r.db.QueryRow(query, username).Scan(&user.ID, &user.Username, &user.IsSuperAdmin, &password)
 	if err != nil {
 		return response.User{}, err
 	}
@@ -86,4 +86,58 @@ func (r *UserRepository) GetUserByUsername(username string) (response.User, erro
 	}
 
 	return user, nil
+}
+
+func (r *UserRepository) IsUserSuperAdmin(userID uuid.UUID) (bool, error) {
+	query := `SELECT is_super_admin FROM users WHERE id = $1`
+
+	var isSuperAdmin sql.NullBool
+	err := r.db.QueryRow(query, userID).Scan(&isSuperAdmin)
+	if err != nil {
+		return false, err
+	}
+
+	return isSuperAdmin.Valid && isSuperAdmin.Bool, nil
+}
+
+func (r *UserRepository) GetAllUsers() ([]response.User, error) {
+	query := `SELECT id, username, is_super_admin, created_at, updated_at FROM users ORDER BY created_at DESC`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []response.User
+	for rows.Next() {
+		var user response.User
+		var isSuperAdmin sql.NullBool
+		var createdAt, updatedAt sql.NullTime
+
+		err := rows.Scan(&user.ID, &user.Username, &isSuperAdmin, &createdAt, &updatedAt)
+		if err != nil {
+			return nil, err
+		}
+
+		if isSuperAdmin.Valid {
+			user.IsSuperAdmin = &isSuperAdmin.Bool
+		}
+
+		if createdAt.Valid {
+			user.CreatedAt = &createdAt.Time
+		}
+
+		if updatedAt.Valid {
+			user.UpdatedAt = &updatedAt.Time
+		}
+
+		users = append(users, user)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return users, nil
 }

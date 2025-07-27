@@ -193,6 +193,27 @@ func (h *UserHandler) GetUserWithOrganizations(c *gin.Context) {
 	c.JSON(http.StatusOK, wrapper.ResponseWrapper{Data: response, Success: true})
 }
 
+// GetAllUsers godoc
+// @Summary Get all users
+// @Description Get list of all users (Super admin only)
+// @Tags /api/v1/admin/users
+// @Accept json
+// @Produce json
+// @Success 200 {object} wrapper.ResponseWrapper{data=[]response.User}
+// @Failure 401 {object} wrapper.ErrorWrapper
+// @Failure 403 {object} wrapper.ErrorWrapper
+// @Failure 500 {object} wrapper.ErrorWrapper
+// @Router /admin/users [get]
+func (h *UserHandler) GetAllUsers(c *gin.Context) {
+	users, err := h.srv.GetAllUsers()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{Message: err.Error(), Success: false})
+		return
+	}
+
+	c.JSON(http.StatusOK, wrapper.ResponseWrapper{Data: users, Success: true})
+}
+
 // Logout godoc
 // @Summary Logout user
 // @Description Logout user by clearing authentication cookie

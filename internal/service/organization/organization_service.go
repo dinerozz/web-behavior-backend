@@ -20,6 +20,24 @@ func NewOrganizationService(repo *repository.OrganizationRepository, userRepo *r
 	}
 }
 
+func (s *OrganizationService) checkAccess(orgID, userID uuid.UUID) (bool, string, error) {
+	isSuperAdmin, err := s.UserRepo.IsUserSuperAdmin(userID)
+	if err != nil {
+		return false, "", fmt.Errorf("failed to check super admin status: %w", err)
+	}
+
+	if isSuperAdmin {
+		return true, "super_admin", nil
+	}
+
+	role, err := s.Repo.CheckUserAccess(orgID, userID)
+	if err != nil {
+		return false, "", err
+	}
+
+	return true, role, nil
+}
+
 func (s *OrganizationService) CreateOrganization(org *request.CreateOrganization, creatorID uuid.UUID) (response.Organization, error) {
 	_, err := s.UserRepo.GetUserById(creatorID)
 	if err != nil {
@@ -39,29 +57,39 @@ func (s *OrganizationService) GetAll() (*[]response.Organization, error) {
 }
 
 func (s *OrganizationService) GetOrganizationByID(orgID uuid.UUID, userID uuid.UUID) (response.Organization, error) {
-	_, err := s.Repo.CheckUserAccess(orgID, userID)
+	hasAccess, _, err := s.checkAccess(orgID, userID)
 	if err != nil {
-		return response.Organization{}, fmt.Errorf("access denied: %w", err)
+		return response.Organization{}, fmt.Errorf("access check failed: %w", err)
+	}
+	if !hasAccess {
+		return response.Organization{}, fmt.Errorf("access denied")
 	}
 
 	return s.Repo.GetOrganizationByID(orgID)
 }
 
 func (s *OrganizationService) GetOrganizationWithMembers(orgID uuid.UUID, userID uuid.UUID) (response.OrganizationWithMembers, error) {
-	_, err := s.Repo.CheckUserAccess(orgID, userID)
+	hasAccess, _, err := s.checkAccess(orgID, userID)
 	if err != nil {
-		return response.OrganizationWithMembers{}, fmt.Errorf("access denied: %w", err)
+		return response.OrganizationWithMembers{}, fmt.Errorf("access check failed: %w", err)
+	}
+	if !hasAccess {
+		return response.OrganizationWithMembers{}, fmt.Errorf("access denied")
 	}
 
 	return s.Repo.GetOrganizationWithMembers(orgID)
 }
 
 func (s *OrganizationService) UpdateOrganization(orgID uuid.UUID, org *request.UpdateOrganization, userID uuid.UUID) (response.Organization, error) {
-	isAdmin, err := s.Repo.IsUserOrgAdmin(orgID, userID)
+	hasAccess, role, err := s.checkAccess(orgID, userID)
 	if err != nil {
 		return response.Organization{}, fmt.Errorf("access check failed: %w", err)
 	}
-	if !isAdmin {
+	if !hasAccess {
+		return response.Organization{}, fmt.Errorf("access denied")
+	}
+
+	if role != "admin" && role != "super_admin" {
 		return response.Organization{}, fmt.Errorf("only admins can update organization")
 	}
 
@@ -69,11 +97,15 @@ func (s *OrganizationService) UpdateOrganization(orgID uuid.UUID, org *request.U
 }
 
 func (s *OrganizationService) DeleteOrganization(orgID uuid.UUID, userID uuid.UUID) error {
-	isAdmin, err := s.Repo.IsUserOrgAdmin(orgID, userID)
+	hasAccess, role, err := s.checkAccess(orgID, userID)
 	if err != nil {
 		return fmt.Errorf("access check failed: %w", err)
 	}
-	if !isAdmin {
+	if !hasAccess {
+		return fmt.Errorf("access denied")
+	}
+
+	if role != "admin" && role != "super_admin" {
 		return fmt.Errorf("only admins can delete organization")
 	}
 
@@ -85,11 +117,15 @@ func (s *OrganizationService) GetUserOrganizations(userID uuid.UUID) (response.U
 }
 
 func (s *OrganizationService) AddUserToOrganization(orgID uuid.UUID, addUserReq *request.AddUserToOrganization, adminUserID uuid.UUID) error {
-	isAdmin, err := s.Repo.IsUserOrgAdmin(orgID, adminUserID)
+	hasAccess, role, err := s.checkAccess(orgID, adminUserID)
 	if err != nil {
 		return fmt.Errorf("access check failed: %w", err)
 	}
-	if !isAdmin {
+	if !hasAccess {
+		return fmt.Errorf("access denied")
+	}
+
+	if role != "admin" && role != "super_admin" {
 		return fmt.Errorf("only admins can add users to organization")
 	}
 
@@ -116,15 +152,19 @@ func (s *OrganizationService) AddUserToOrganization(orgID uuid.UUID, addUserReq 
 }
 
 func (s *OrganizationService) RemoveUserFromOrganization(orgID, userToRemoveID, adminUserID uuid.UUID) error {
-	isAdmin, err := s.Repo.IsUserOrgAdmin(orgID, adminUserID)
+	hasAccess, role, err := s.checkAccess(orgID, adminUserID)
 	if err != nil {
 		return fmt.Errorf("access check failed: %w", err)
 	}
-	if !isAdmin {
+	if !hasAccess {
+		return fmt.Errorf("access denied")
+	}
+
+	if role != "admin" && role != "super_admin" {
 		return fmt.Errorf("only admins can remove users from organization")
 	}
 
-	if adminUserID == userToRemoveID {
+	if role == "admin" && adminUserID == userToRemoveID {
 		orgWithMembers, err := s.Repo.GetOrganizationWithMembers(orgID)
 		if err != nil {
 			return fmt.Errorf("failed to get organization members: %w", err)
@@ -146,11 +186,15 @@ func (s *OrganizationService) RemoveUserFromOrganization(orgID, userToRemoveID, 
 }
 
 func (s *OrganizationService) UpdateUserRole(orgID, userToUpdateID uuid.UUID, role string, adminUserID uuid.UUID) error {
-	isAdmin, err := s.Repo.IsUserOrgAdmin(orgID, adminUserID)
+	hasAccess, userRole, err := s.checkAccess(orgID, adminUserID)
 	if err != nil {
 		return fmt.Errorf("access check failed: %w", err)
 	}
-	if !isAdmin {
+	if !hasAccess {
+		return fmt.Errorf("access denied")
+	}
+
+	if userRole != "admin" && userRole != "super_admin" {
 		return fmt.Errorf("only admins can update user roles")
 	}
 
@@ -158,7 +202,7 @@ func (s *OrganizationService) UpdateUserRole(orgID, userToUpdateID uuid.UUID, ro
 		return fmt.Errorf("invalid role: must be 'admin', 'member', or 'viewer'")
 	}
 
-	if adminUserID == userToUpdateID && role != "admin" {
+	if userRole == "admin" && adminUserID == userToUpdateID && role != "admin" {
 		orgWithMembers, err := s.Repo.GetOrganizationWithMembers(orgID)
 		if err != nil {
 			return fmt.Errorf("failed to get organization members: %w", err)
@@ -180,9 +224,14 @@ func (s *OrganizationService) UpdateUserRole(orgID, userToUpdateID uuid.UUID, ro
 }
 
 func (s *OrganizationService) CheckUserAccess(orgID, userID uuid.UUID) (string, error) {
-	return s.Repo.CheckUserAccess(orgID, userID)
+	_, role, err := s.checkAccess(orgID, userID)
+	return role, err
 }
 
 func (s *OrganizationService) IsUserOrgAdmin(orgID, userID uuid.UUID) (bool, error) {
-	return s.Repo.IsUserOrgAdmin(orgID, userID)
+	_, role, err := s.checkAccess(orgID, userID)
+	if err != nil {
+		return false, err
+	}
+	return role == "admin" || role == "super_admin", nil
 }

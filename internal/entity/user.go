@@ -3,6 +3,7 @@ package entity
 import "github.com/gofrs/uuid"
 
 type User struct {
-	ID       uuid.UUID `json:"id"`
-	Username string    `json:"username"`
+	ID           uuid.UUID `json:"id"`
+	Username     string    `json:"username"`
+	IsSuperAdmin bool      `json:"is_super_admin,omitempty"`
 }

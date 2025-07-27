@@ -496,7 +496,9 @@ definitions:
         type: string
       id:
         type: string
-      password:
+      is_super_admin:
+        type: boolean
+      updated_at:
         type: string
       username:
         type: string
@@ -554,6 +556,40 @@ definitions:
 info:
   contact: {}
 paths:
+  /admin/users:
+    get:
+      consumes:
+      - application/json
+      description: Get list of all users (Super admin only)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/response.User'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get all users
+      tags:
+      - /api/v1/admin/users
   /admin/users/login:
     post:
       consumes:
