@@ -31,6 +31,11 @@ func (s *UserService) GetUserByUsername(username string) (response.User, error) 
 	return s.Repo.GetUserByUsername(username)
 }
 
+func (s *UserService) CreateUserWithPassword(user *request.CreateUserWithPassword) (response.User, error) {
+	return s.Repo.CreateUserWithPassword(user)
+}
+
+// Deprecated
 func (s *UserService) CreateOrAuthenticateUserWithPassword(user *request.CreateUserWithPassword) (response.User, error) {
 	return s.Repo.CreateOrAuthenticateUserWithPassword(user)
 }

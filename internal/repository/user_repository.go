@@ -16,6 +16,23 @@ func NewUserRepository(db *sqlx.DB) *UserRepository {
 	return &UserRepository{db: db}
 }
 
+func (r *UserRepository) CreateUserWithPassword(user *request.CreateUserWithPassword) (response.User, error) {
+	query := `INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id, username`
+
+	var userID uuid.UUID
+	var username sql.NullString
+
+	err := r.db.QueryRow(query, user.Username, user.Password).Scan(&userID, &username)
+	if err != nil {
+		return response.User{}, err
+	}
+
+	return response.User{
+		ID:       userID,
+		Username: username.String,
+	}, nil
+}
+
 func (r *UserRepository) CreateOrAuthenticateUserWithPassword(user *request.CreateUserWithPassword) (response.User, error) {
 	query := `SELECT id, username FROM users WHERE username = $1`
 

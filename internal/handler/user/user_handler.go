@@ -24,84 +24,104 @@ func NewUserHandler(srv *user.UserService, orgSrv *organization.OrganizationServ
 	}
 }
 
-// CreateOrAuthUserWithPassword godoc
-// @Summary Create or authenticate user with password
-// @Description Create a new user or authenticate an existing user with password
-// @Tags users
+// CreateUserWithPassword godoc
+// @Summary Create new user with password (Admin only)
+// @Description Create a new user with password - only available for admin users
+// @Tags /api/v1/admin/users
 // @Accept json
 // @Produce json
 // @Param user body request.CreateUserWithPassword true "User object"
-// @Success 200 {object} wrapper.ResponseWrapper{data=response.User}
+// @Success 201 {object} wrapper.ResponseWrapper{data=response.User}
 // @Failure 400 {object} wrapper.ErrorWrapper
+// @Failure 409 {object} wrapper.ErrorWrapper
 // @Failure 500 {object} wrapper.ErrorWrapper
-// @Router /users/auth [post]
-func (h *UserHandler) CreateOrAuthUserWithPassword(c *gin.Context) {
+// @Router /admin/users/register [post]
+func (h *UserHandler) CreateUserWithPassword(c *gin.Context) {
 	var userRequest request.CreateUserWithPassword
 	if err := c.ShouldBindJSON(&userRequest); err != nil {
 		c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{Message: err.Error(), Success: false})
 		return
 	}
 
-	originalPassword := userRequest.Password
-
 	userExists := h.srv.CheckIfUserExistsByUsername(userRequest.Username)
 	if userExists {
-		existingUser, err := h.srv.GetUserByUsername(userRequest.Username)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{Message: err.Error(), Success: false})
-			return
-		}
-
-		if existingUser.Password == nil {
-			c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{Message: "User doesn't have a password", Success: false})
-			return
-		}
-
-		err = bcrypt.CompareHashAndPassword([]byte(*existingUser.Password), []byte(originalPassword))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{Message: "Invalid password", Success: false})
-			return
-		}
-
-		token, err := utils.GenerateToken(existingUser.ID, existingUser.Username)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{Message: err.Error(), Success: false})
-			return
-		}
-
-		c.SetCookie("token", token, 3600*24, "/", "", false, true)
-		c.JSON(http.StatusOK, wrapper.ResponseWrapper{Data: token, Success: true})
+		c.JSON(http.StatusConflict, wrapper.ErrorWrapper{Message: "User with this username already exists", Success: false})
 		return
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(originalPassword), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(userRequest.Password), bcrypt.DefaultCost)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{Message: err.Error(), Success: false})
+		c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{Message: "Failed to hash password", Success: false})
 		return
 	}
 
 	userRequest.Password = string(hashedPassword)
 
-	userResponse, err := h.srv.CreateOrAuthenticateUserWithPassword(&userRequest)
+	userResponse, err := h.srv.CreateUserWithPassword(&userRequest)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{Message: err.Error(), Success: false})
 		return
 	}
 
-	token, err := utils.GenerateToken(userResponse.ID, userResponse.Username)
+	c.JSON(http.StatusCreated, wrapper.ResponseWrapper{Data: userResponse, Success: true})
+}
+
+// AuthenticateUserWithPassword godoc
+// @Summary Authenticate user with password
+// @Description Authenticate an existing user with username and password
+// @Tags /api/v1/admin/users
+// @Accept json
+// @Produce json
+// @Param user body request.CreateUserWithPassword true "Login credentials"
+// @Success 200 {object} wrapper.ResponseWrapper{data=string}
+// @Failure 400 {object} wrapper.ErrorWrapper
+// @Failure 401 {object} wrapper.ErrorWrapper
+// @Failure 500 {object} wrapper.ErrorWrapper
+// @Router /admin/users/login [post]
+func (h *UserHandler) AuthenticateUserWithPassword(c *gin.Context) {
+	var loginRequest request.CreateUserWithPassword
+	if err := c.ShouldBindJSON(&loginRequest); err != nil {
+		c.JSON(http.StatusBadRequest, wrapper.ErrorWrapper{Message: err.Error(), Success: false})
+		return
+	}
+
+	userExists := h.srv.CheckIfUserExistsByUsername(loginRequest.Username)
+	if !userExists {
+		c.JSON(http.StatusUnauthorized, wrapper.ErrorWrapper{Message: "Invalid username or password", Success: false})
+		return
+	}
+
+	existingUser, err := h.srv.GetUserByUsername(loginRequest.Username)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{Message: err.Error(), Success: false})
+		c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{Message: "Internal server error", Success: false})
+		return
+	}
+
+	if existingUser.Password == nil {
+		c.JSON(http.StatusUnauthorized, wrapper.ErrorWrapper{Message: "User doesn't have a password", Success: false})
+		return
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(*existingUser.Password), []byte(loginRequest.Password))
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, wrapper.ErrorWrapper{Message: "Invalid username or password", Success: false})
+		return
+	}
+
+	token, err := utils.GenerateToken(existingUser.ID, existingUser.Username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{Message: "Failed to generate token", Success: false})
 		return
 	}
 
 	c.SetCookie("token", token, 3600*24, "/", "", false, true)
-	c.JSON(http.StatusOK, wrapper.ResponseWrapper{Data: userResponse, Success: true})
+	c.JSON(http.StatusOK, wrapper.ResponseWrapper{Data: token, Success: true})
 }
 
 // GetUserById godoc
 // @Summary Get user by ID
 // @Description Get user by ID
-// @Tags users
+// @Tags /api/v1/admin/users
 // @Accept json
 // @Produce json
 // @Success 200 {object} wrapper.ResponseWrapper{data=response.User}
@@ -133,7 +153,7 @@ func (h *UserHandler) GetUserById(c *gin.Context) {
 // GetUserWithOrganizations godoc
 // @Summary Get user profile with organizations
 // @Description Get user profile including their organizations
-// @Tags users
+// @Tags /api/v1/admin/users
 // @Accept json
 // @Produce json
 // @Success 200 {object} wrapper.ResponseWrapper{data=map[string]interface{}}
@@ -176,7 +196,7 @@ func (h *UserHandler) GetUserWithOrganizations(c *gin.Context) {
 // Logout godoc
 // @Summary Logout user
 // @Description Logout user by clearing authentication cookie
-// @Tags users
+// @Tags /api/v1/admin/users
 // @Accept json
 // @Produce json
 // @Success 200 {object} wrapper.SuccessWrapper{message=string}

@@ -554,6 +554,84 @@ definitions:
 info:
   contact: {}
 paths:
+  /admin/users/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate an existing user with username and password
+      parameters:
+      - description: Login credentials
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/request.CreateUserWithPassword'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  type: string
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Authenticate user with password
+      tags:
+      - /api/v1/admin/users
+  /admin/users/register:
+    post:
+      consumes:
+      - application/json
+      description: Create a new user with password - only available for admin users
+      parameters:
+      - description: User object
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/request.CreateUserWithPassword'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.User'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Create new user with password (Admin only)
+      tags:
+      - /api/v1/admin/users
   /ai-analytics/domain-usage:
     post:
       consumes:
@@ -1838,41 +1916,6 @@ paths:
       summary: Get user's organizations
       tags:
       - /api/v1/admin/organizations
-  /users/auth:
-    post:
-      consumes:
-      - application/json
-      description: Create a new user or authenticate an existing user with password
-      parameters:
-      - description: User object
-        in: body
-        name: user
-        required: true
-        schema:
-          $ref: '#/definitions/request.CreateUserWithPassword'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/wrapper.ResponseWrapper'
-            - properties:
-                data:
-                  $ref: '#/definitions/response.User'
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/wrapper.ErrorWrapper'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/wrapper.ErrorWrapper'
-      summary: Create or authenticate user with password
-      tags:
-      - users
   /users/logout:
     post:
       consumes:
@@ -1892,7 +1935,7 @@ paths:
               type: object
       summary: Logout user
       tags:
-      - users
+      - /api/v1/admin/users
   /users/profile:
     get:
       consumes:
@@ -1920,7 +1963,7 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Get user by ID
       tags:
-      - users
+      - /api/v1/admin/users
   /users/profile/full:
     get:
       consumes:
@@ -1949,5 +1992,5 @@ paths:
             $ref: '#/definitions/wrapper.ErrorWrapper'
       summary: Get user profile with organizations
       tags:
-      - users
+      - /api/v1/admin/users
 swagger: "2.0"

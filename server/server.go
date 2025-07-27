@@ -216,7 +216,7 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 	// Public admin authentication routes
 	publicAdminRoutes := r.Group("/api/v1/admin")
 	{
-		publicAdminRoutes.POST("/users/auth", routerHandler.userHandler.CreateOrAuthUserWithPassword)
+		publicAdminRoutes.POST("/users/auth", routerHandler.userHandler.AuthenticateUserWithPassword)
 	}
 
 	// Private authenticated routes
@@ -227,6 +227,7 @@ func setupRouter(routerHandler *RouterHandler) *gin.Engine {
 		privateRoutes.GET("/users/profile", routerHandler.userHandler.GetUserById)
 		privateRoutes.GET("/users/profile/full", routerHandler.userHandler.GetUserWithOrganizations)
 		privateRoutes.POST("/users/logout", routerHandler.userHandler.Logout)
+		privateRoutes.POST("/users/register", routerHandler.userHandler.CreateUserWithPassword)
 
 		// Organization routes
 		orgRoutes := privateRoutes.Group("/organizations")
