@@ -58,14 +58,21 @@ func (r *UserRepository) CreateOrAuthenticateUserWithPassword(user *request.Crea
 }
 
 func (r *UserRepository) GetUserById(userID uuid.UUID) (response.User, error) {
-	query := `SELECT u.id, u.username 
+	query := `SELECT u.id, u.username, is_super_admin
     FROM users u WHERE u.id = $1`
 
 	user := response.User{}
 
-	err := r.db.QueryRow(query, userID).Scan(&user.ID, &user.Username)
+	err := r.db.QueryRow(query, userID).Scan(&user.ID, &user.Username, &user.IsSuperAdmin)
 	if err != nil {
 		return response.User{}, err
+	}
+
+	if user.IsSuperAdmin != nil && *user.IsSuperAdmin == false {
+		return response.User{
+			ID:       user.ID,
+			Username: user.Username,
+		}, nil
 	}
 
 	return user, nil
