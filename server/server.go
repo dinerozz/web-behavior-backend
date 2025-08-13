@@ -309,7 +309,7 @@ func setupRouter(routerHandler *RouterHandler, userRepo *repository.UserReposito
 		{
 			chromeExtensionAdminRoutes.GET("/stats", routerHandler.downloadExtensionHandler.GetExtensionStats)
 			//chromeExtensionAdminRoutes.POST("/deploy", routerHandler.downloadExtensionHandler.DeployExtension)
-
+			chromeExtensionAdminRoutes.GET("/download", routerHandler.downloadExtensionHandler.DownloadExtension)
 		}
 	}
 

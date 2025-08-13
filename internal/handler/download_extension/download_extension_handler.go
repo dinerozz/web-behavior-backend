@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gofrs/uuid"
 	"io/ioutil"
+	log "log"
 	"net/http"
 	"os"
 	"time"
@@ -336,4 +337,39 @@ func (h *ExtensionHandler) GetExtensionHealth(c *gin.Context) {
 			Success: false,
 		})
 	}
+}
+
+// DownloadExtension godoc
+// @Summary Download Chrome extension
+// @Description Download Chrome extension zip file (Super admin only)
+// @Tags /api/v1/admin/download-extension
+// @Accept json
+// @Produce application/zip
+// @Success 200 {file} application/zip
+// @Failure 401 {object} wrapper.ErrorWrapper
+// @Failure 403 {object} wrapper.ErrorWrapper
+// @Failure 404 {object} wrapper.ErrorWrapper
+// @Failure 500 {object} wrapper.ErrorWrapper
+// @Router /admin/download-extension/download [get]
+func (h *ExtensionHandler) DownloadExtension(c *gin.Context) {
+	extensionPath := "/var/lib/chrome-extension/extension.zip"
+
+	if _, err := os.Stat(extensionPath); os.IsNotExist(err) {
+		c.JSON(http.StatusNotFound, wrapper.ErrorWrapper{
+			Message: "Chrome extension not found",
+			Success: false,
+		})
+		return
+	}
+
+	userID, exists := c.Get("user_id")
+	if exists {
+		log.Printf("Extension downloaded by user: %v", userID)
+	}
+
+	c.Header("Content-Disposition", "attachment; filename=chrome-extension-latest.zip")
+	c.Header("Content-Type", "application/zip")
+	c.Header("Content-Description", "File Transfer")
+
+	c.File(extensionPath)
 }
