@@ -352,24 +352,23 @@ func (h *ExtensionHandler) GetExtensionHealth(c *gin.Context) {
 // @Failure 500 {object} wrapper.ErrorWrapper
 // @Router /admin/download-extension/download [get]
 func (h *ExtensionHandler) DownloadExtension(c *gin.Context) {
-	extensionPath := "/var/lib/chrome-extension/extension.zip"
+	userID, exists := c.Get("user_id")
+	if exists {
+		log.Printf("Extension download requested by user: %v", userID)
+	}
 
-	if _, err := os.Stat(extensionPath); os.IsNotExist(err) {
-		c.JSON(http.StatusNotFound, wrapper.ErrorWrapper{
-			Message: "Chrome extension not found",
+	isSuperAdmin, adminExists := c.Get("is_super_admin")
+	if !adminExists || !isSuperAdmin.(bool) {
+		c.JSON(http.StatusForbidden, wrapper.ErrorWrapper{
+			Message: "Super admin access required",
 			Success: false,
 		})
 		return
 	}
 
-	userID, exists := c.Get("user_id")
-	if exists {
-		log.Printf("Extension downloaded by user: %v", userID)
-	}
-
+	c.Header("X-Accel-Redirect", "/internal/chrome-extension/extension.zip")
 	c.Header("Content-Disposition", "attachment; filename=chrome-extension-latest.zip")
 	c.Header("Content-Type", "application/zip")
-	c.Header("Content-Description", "File Transfer")
 
-	c.File(extensionPath)
+	c.Status(http.StatusOK)
 }
