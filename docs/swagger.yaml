@@ -1,4 +1,51 @@
 definitions:
+  download_extension.DeployRequest:
+    properties:
+      extension_zip:
+        description: base64 encoded
+        type: string
+      info_json:
+        description: base64 encoded
+        type: string
+      version:
+        type: string
+    required:
+    - extension_zip
+    - info_json
+    - version
+    type: object
+  download_extension.ExtensionInfo:
+    properties:
+      branch:
+        type: string
+      build_date:
+        type: string
+      deployed_at:
+        type: string
+      full_commit:
+        type: string
+      repository:
+        type: string
+      size_bytes:
+        type: integer
+      size_human:
+        type: string
+      version:
+        type: string
+    type: object
+  download_extension.ExtensionStats:
+    properties:
+      deployment_date:
+        type: string
+      extension_size:
+        type: integer
+      is_available:
+        type: boolean
+      last_download:
+        type: string
+      total_downloads:
+        type: integer
+    type: object
   entity.AIAnalyticsRequest:
     properties:
       deep_work:
@@ -735,6 +782,143 @@ paths:
       summary: Get focus level without AI (with Redis caching)
       tags:
       - /api/v1/admin/ai-analytics
+  /api/auth/verify-admin:
+    get:
+      consumes:
+      - application/json
+      description: Internal endpoint for nginx auth_request to verify admin access
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Admin access granted
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Verify admin access for nginx auth_request
+      tags:
+      - Chrome Extension
+  /api/extension/deploy:
+    post:
+      consumes:
+      - application/json
+      description: Deploy Chrome Extension files via API (admin only)
+      parameters:
+      - description: Deployment data
+        in: body
+        name: deployment
+        required: true
+        schema:
+          $ref: '#/definitions/download_extension.DeployRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/download_extension.ExtensionInfo'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Deploy Chrome Extension via API
+      tags:
+      - Chrome Extension
+  /api/extension/health:
+    get:
+      consumes:
+      - application/json
+      description: Check if Chrome Extension files are available and valid
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  additionalProperties: true
+                  type: object
+              type: object
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Check Chrome Extension health
+      tags:
+      - Chrome Extension
+  /api/extension/info:
+    get:
+      consumes:
+      - application/json
+      description: Get current Chrome Extension version and metadata (public endpoint)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/download_extension.ExtensionInfo'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get Chrome Extension information
+      tags:
+      - Chrome Extension
+  /api/extension/stats:
+    get:
+      consumes:
+      - application/json
+      description: Get Chrome Extension download statistics (admin only)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/wrapper.ResponseWrapper'
+            - properties:
+                data:
+                  $ref: '#/definitions/download_extension.ExtensionStats'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/wrapper.ErrorWrapper'
+      summary: Get Chrome Extension statistics
+      tags:
+      - Chrome Extension
   /behaviors:
     get:
       consumes:

@@ -6,6 +6,7 @@ import (
 	"github.com/dinerozz/web-behavior-backend/config"
 	"github.com/dinerozz/web-behavior-backend/docs"
 	aiHandler "github.com/dinerozz/web-behavior-backend/internal/handler/ai-analytics"
+	downloadExtensionHandler "github.com/dinerozz/web-behavior-backend/internal/handler/download_extension"
 	userExtensionHandler "github.com/dinerozz/web-behavior-backend/internal/handler/extension_user"
 	"github.com/dinerozz/web-behavior-backend/internal/handler/metrics"
 	organizationHandler "github.com/dinerozz/web-behavior-backend/internal/handler/organization"
@@ -35,13 +36,14 @@ import (
 )
 
 type RouterHandler struct {
-	userHandler          *userHandler.UserHandler
-	userBehaviorHandler  *userBehaviorHandler.UserBehaviorHandler
-	userExtensionHandler *userExtensionHandler.ExtensionUserHandler
-	userExtensionService extensionUserService.ExtensionUserService
-	userMetricsHandler   *metrics.MetricsHandler
-	aiAnalyticsHandler   *aiHandler.AIAnalyticsHandler
-	organizationHandler  *organizationHandler.OrganizationHandler
+	userHandler              *userHandler.UserHandler
+	userBehaviorHandler      *userBehaviorHandler.UserBehaviorHandler
+	userExtensionHandler     *userExtensionHandler.ExtensionUserHandler
+	userExtensionService     extensionUserService.ExtensionUserService
+	userMetricsHandler       *metrics.MetricsHandler
+	aiAnalyticsHandler       *aiHandler.AIAnalyticsHandler
+	organizationHandler      *organizationHandler.OrganizationHandler
+	downloadExtensionHandler *downloadExtensionHandler.ExtensionHandler
 }
 
 func RunServer(config *config.Config) {
@@ -102,15 +104,17 @@ func RunServer(config *config.Config) {
 	userMetricsHandler := metrics.NewMetricsHandler(userMetricsService, redisService)
 	aiAnalyticsHandler := aiHandler.NewAIAnalyticsHandler(aiService, redisService)
 	organizationHandler := organizationHandler.NewOrganizationHandler(organizationSrv)
+	downloadExtensionHandler := downloadExtensionHandler.NewExtensionHandler(userRepo)
 
 	routerHandler := &RouterHandler{
-		userHandler:          userHandler,
-		userBehaviorHandler:  userBehaviorHandler,
-		userExtensionHandler: userExtensionHandler,
-		userExtensionService: userExtensionService,
-		userMetricsHandler:   userMetricsHandler,
-		aiAnalyticsHandler:   aiAnalyticsHandler,
-		organizationHandler:  organizationHandler,
+		userHandler:              userHandler,
+		userBehaviorHandler:      userBehaviorHandler,
+		userExtensionHandler:     userExtensionHandler,
+		userExtensionService:     userExtensionService,
+		userMetricsHandler:       userMetricsHandler,
+		aiAnalyticsHandler:       aiAnalyticsHandler,
+		organizationHandler:      organizationHandler,
+		downloadExtensionHandler: downloadExtensionHandler,
 	}
 
 	r := setupRouter(routerHandler, userRepo)
@@ -284,6 +288,28 @@ func setupRouter(routerHandler *RouterHandler, userRepo *repository.UserReposito
 			extensionRoutes.GET("/users/stats", routerHandler.userExtensionHandler.GetExtensionUserStats)
 			extensionRoutes.DELETE("/users/:id", routerHandler.userExtensionHandler.DeleteExtensionUser)
 			extensionRoutes.PUT("/users/:id", routerHandler.userExtensionHandler.UpdateExtensionUser)
+		}
+
+		// ===== CHROME EXTENSION AUTH ROUTES =====
+		authGroup := r.Group("/api/auth")
+		{
+			authGroup.Any("/verify-admin", routerHandler.downloadExtensionHandler.VerifyAdmin)
+		}
+
+		// ===== CHROME EXTENSION PUBLIC ROUTES =====
+		chromeExtensionGroup := r.Group("/api/download-extension")
+		{
+			chromeExtensionGroup.GET("/info", routerHandler.downloadExtensionHandler.GetExtensionInfo)
+
+			chromeExtensionGroup.GET("/health", routerHandler.downloadExtensionHandler.GetExtensionHealth)
+		}
+
+		chromeExtensionAdminRoutes := privateRoutes.Group("/download-extension")
+		chromeExtensionAdminRoutes.Use(middleware.SuperAdminMiddleware(userRepo))
+		{
+			chromeExtensionAdminRoutes.GET("/stats", routerHandler.downloadExtensionHandler.GetExtensionStats)
+			//chromeExtensionAdminRoutes.POST("/deploy", routerHandler.downloadExtensionHandler.DeployExtension)
+
 		}
 	}
 

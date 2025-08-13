@@ -307,6 +307,232 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/auth/verify-admin": {
+            "get": {
+                "description": "Internal endpoint for nginx auth_request to verify admin access",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Chrome Extension"
+                ],
+                "summary": "Verify admin access for nginx auth_request",
+                "responses": {
+                    "200": {
+                        "description": "Admin access granted"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/wrapper.ErrorWrapper"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/extension/deploy": {
+            "post": {
+                "description": "Deploy Chrome Extension files via API (admin only)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Chrome Extension"
+                ],
+                "summary": "Deploy Chrome Extension via API",
+                "parameters": [
+                    {
+                        "description": "Deployment data",
+                        "name": "deployment",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/download_extension.DeployRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wrapper.ResponseWrapper"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/download_extension.ExtensionInfo"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/wrapper.ErrorWrapper"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/wrapper.ErrorWrapper"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/wrapper.ErrorWrapper"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/extension/health": {
+            "get": {
+                "description": "Check if Chrome Extension files are available and valid",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Chrome Extension"
+                ],
+                "summary": "Check Chrome Extension health",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wrapper.ResponseWrapper"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": true
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/wrapper.ErrorWrapper"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/extension/info": {
+            "get": {
+                "description": "Get current Chrome Extension version and metadata (public endpoint)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Chrome Extension"
+                ],
+                "summary": "Get Chrome Extension information",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wrapper.ResponseWrapper"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/download_extension.ExtensionInfo"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/wrapper.ErrorWrapper"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/wrapper.ErrorWrapper"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/extension/stats": {
+            "get": {
+                "description": "Get Chrome Extension download statistics (admin only)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Chrome Extension"
+                ],
+                "summary": "Get Chrome Extension statistics",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/wrapper.ResponseWrapper"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/download_extension.ExtensionStats"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/wrapper.ErrorWrapper"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/wrapper.ErrorWrapper"
+                        }
+                    }
+                }
+            }
+        },
         "/behaviors": {
             "get": {
                 "description": "Get user behavior events with optional filters",
@@ -2388,6 +2614,76 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "download_extension.DeployRequest": {
+            "type": "object",
+            "required": [
+                "extension_zip",
+                "info_json",
+                "version"
+            ],
+            "properties": {
+                "extension_zip": {
+                    "description": "base64 encoded",
+                    "type": "string"
+                },
+                "info_json": {
+                    "description": "base64 encoded",
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "download_extension.ExtensionInfo": {
+            "type": "object",
+            "properties": {
+                "branch": {
+                    "type": "string"
+                },
+                "build_date": {
+                    "type": "string"
+                },
+                "deployed_at": {
+                    "type": "string"
+                },
+                "full_commit": {
+                    "type": "string"
+                },
+                "repository": {
+                    "type": "string"
+                },
+                "size_bytes": {
+                    "type": "integer"
+                },
+                "size_human": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "download_extension.ExtensionStats": {
+            "type": "object",
+            "properties": {
+                "deployment_date": {
+                    "type": "string"
+                },
+                "extension_size": {
+                    "type": "integer"
+                },
+                "is_available": {
+                    "type": "boolean"
+                },
+                "last_download": {
+                    "type": "string"
+                },
+                "total_downloads": {
+                    "type": "integer"
+                }
+            }
+        },
         "entity.AIAnalyticsRequest": {
             "type": "object",
             "required": [
