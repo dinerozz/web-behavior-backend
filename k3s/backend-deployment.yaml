@@ -82,6 +82,10 @@ spec:
                 secretKeyRef:
                   name: web-behavior-secret
                   key: REDIS_PASSWORD
+          volumeMounts:
+            - name: chrome-extension-volume
+              mountPath: /var/lib/chrome-extension
+              readOnly: true
           resources:
             requests:
               cpu: 50m
@@ -101,3 +105,8 @@ spec:
               port: 5555
             initialDelaySeconds: 5
             periodSeconds: 5
+      volumes:
+        - name: chrome-extension-volume
+          hostPath:
+            path: /var/lib/chrome-extension
+            type: DirectoryOrCreate
