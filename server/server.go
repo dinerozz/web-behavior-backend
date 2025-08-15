@@ -297,7 +297,7 @@ func setupRouter(routerHandler *RouterHandler, userRepo *repository.UserReposito
 		}
 
 		// ===== CHROME EXTENSION PUBLIC ROUTES =====
-		chromeExtensionGroup := r.Group("/api/download-extension")
+		chromeExtensionGroup := r.Group("/download-extension")
 		{
 			chromeExtensionGroup.GET("/info", routerHandler.downloadExtensionHandler.GetExtensionInfo)
 
