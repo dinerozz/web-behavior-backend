@@ -138,8 +138,9 @@ func (h *ExtensionHandler) GetExtensionInfo(c *gin.Context) {
 		return
 	}
 
-	infoData, err := ioutil.ReadFile(ExtensionInfoPath)
+	infoData, err := os.ReadFile(ExtensionInfoPath)
 	if err != nil {
+		fmt.Println("Error reading extension info:", err)
 		c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{
 			Message: "Cannot read extension info",
 			Success: false,
