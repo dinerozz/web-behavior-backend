@@ -131,6 +131,7 @@ func (h *ExtensionHandler) VerifyAdmin(c *gin.Context) {
 // @Router /api/extension/info [get]
 func (h *ExtensionHandler) GetExtensionInfo(c *gin.Context) {
 	if _, err := os.Stat(ExtensionInfoPath); os.IsNotExist(err) {
+		fmt.Println("Error reading extension info1:", err)
 		c.JSON(http.StatusNotFound, wrapper.ErrorWrapper{
 			Message: "Chrome extension not deployed yet",
 			Success: false,
@@ -140,7 +141,7 @@ func (h *ExtensionHandler) GetExtensionInfo(c *gin.Context) {
 
 	infoData, err := os.ReadFile(ExtensionInfoPath)
 	if err != nil {
-		fmt.Println("Error reading extension info:", err)
+		fmt.Println("Error reading extension info2:", err)
 		c.JSON(http.StatusInternalServerError, wrapper.ErrorWrapper{
 			Message: "Cannot read extension info",
 			Success: false,
