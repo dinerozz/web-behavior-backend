@@ -296,19 +296,11 @@ func setupRouter(routerHandler *RouterHandler, userRepo *repository.UserReposito
 			authGroup.Any("/verify-admin", routerHandler.downloadExtensionHandler.VerifyAdmin)
 		}
 
-		// ===== CHROME EXTENSION PUBLIC ROUTES =====
-		chromeExtensionGroup := r.Group("/download-extension")
-		{
-			chromeExtensionGroup.GET("/info", routerHandler.downloadExtensionHandler.GetExtensionInfo)
-
-			chromeExtensionGroup.GET("/health", routerHandler.downloadExtensionHandler.GetExtensionHealth)
-		}
-
 		chromeExtensionAdminRoutes := privateRoutes.Group("/download-extension")
 		chromeExtensionAdminRoutes.Use(middleware.SuperAdminMiddleware(userRepo))
 		{
 			chromeExtensionAdminRoutes.GET("/stats", routerHandler.downloadExtensionHandler.GetExtensionStats)
-			//chromeExtensionAdminRoutes.POST("/deploy", routerHandler.downloadExtensionHandler.DeployExtension)
+			chromeExtensionAdminRoutes.GET("/info", routerHandler.downloadExtensionHandler.GetExtensionInfo)
 			chromeExtensionAdminRoutes.GET("/download", routerHandler.downloadExtensionHandler.DownloadExtension)
 		}
 	}
